@@ -1,13 +1,13 @@
 
 // imports
 #include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <time.h>
-#include <signal.h>
-#include <arpa/inet.h>
-#include <unistd.h>
 #include <pthread.h>
+#include <time.h>
+#include <stdlib.h>
+#include <signal.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
 
 #define AUTH_TXT "Authentication.txt"
 

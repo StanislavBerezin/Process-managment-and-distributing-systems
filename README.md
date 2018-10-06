@@ -6,7 +6,8 @@
 
 # CURRENT TO DO LIST
 
-1.
+1. Setup the server
+2. Connect the client to server
 
 # Specification for the project itself
 

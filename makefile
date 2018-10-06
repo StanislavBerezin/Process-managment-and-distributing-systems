@@ -1,7 +1,7 @@
 CC = c99
 CFLAGS = -Wall -pedantic
 SFLAGS = -lpthread
-FILE = 'none'
+
 all:
 	make server
 	make client
@@ -12,5 +12,7 @@ server:
 client: 
 	$(CC) client.c -o client $(CFLAGS)
 
-file: 
-	$(CC) $(FILE).c -o $(FILE) $(CFLAGS) $(SFLAGS)
+clean: 
+	rm -f server client *.o
+ 
+.PHONY: all clean 

@@ -13,6 +13,7 @@
 
 #define NAME_LENGTH 7
 #define PASS_LENGTH 6
+#define h_addr h_addr_list[0]
 
 char username[NAME_LENGTH];
 char password[PASS_LENGTH];
@@ -25,19 +26,21 @@ void connectToServer();
 
 //Connection Variable
 int PORT_NUM;
-struct hostent * he;
+struct hostent *he;
 
 int main(int argc, char *argv[])
 {
-    if ( (he=gethostbyname(argv[1])) == NULL) {  /* get the host info */
-		perror("gethostbyname");
-		exit(1);
-	}
+    if ((he = gethostbyname(argv[1])) == NULL)
+    { /* get the host info */
+        perror("gethostbyname");
+        exit(1);
+    }
 
-	if (argc != 3){
-		printf("Usage: server port_number");
-		exit(1);
-	}
+    if (argc != 3)
+    {
+        printf("Usage: server port_number");
+        exit(1);
+    }
 
     PORT_NUM = atoi(argv[2]);
 
@@ -53,7 +56,6 @@ void authentate()
 void connectToServer()
 {
     // Notes: Simple demo for testing Connection, will change later on
-    
 
     // Create a socket
     int network_socket;
@@ -69,29 +71,29 @@ void connectToServer()
     // Using 9002 Por
     server_address.sin_port = htons(PORT_NUM);
     // Connect to 0.0.0.0 IP
-    server_address.sin_addr = *((struct in_addr *)he->h_addr );
+    server_address.sin_addr = *((struct in_addr *)he->h_addr);
 
     bzero(&(server_address.sin_zero), 8);
 
     // First Parameter is the actual socket
-    int connection_status = connect(network_socket, (struct sockaddr*) &server_address, sizeof(server_address) );
+    int connection_status = connect(network_socket, (struct sockaddr *)&server_address, sizeof(server_address));
 
     // Check for error with the connection
-    if (connection_status == -1){
+    if (connection_status == -1)
+    {
         printf("There was an error making a connection to the remote socket \n\n\n");
     }
 
     // Recieve data from the server
     char server_response[256];
     // Socket / Pointer to the recieve data / size for the response / FLAG
-    recv(network_socket, &server_response, sizeof(server_response) , 0 );
+    recv(network_socket, &server_response, sizeof(server_response), 0);
 
     // Print out the server 's response
     printf(" %s \n", server_response);
 
     // and then close the socket
     close(network_socket);
-
 }
 
 // Function definitions

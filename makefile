@@ -1,14 +1,19 @@
-CC = cc
-CFLAGS = -g -std=c99 -Werror -Wall
+CC = c99
+CFLAGS = -Wall -pedantic
 SFLAGS = -lpthread
+FILE = 'none'
+all:
+	make server
+	make client
 
-all: server client
+server: 
+	$(CC) server.c -o server $(CFLAGS) $(SFLAGS)
 
-server: server.o
-	$(CC) $(CFLAGS) -o server server.o
+client: 
+	$(CC) client.c -o client $(CFLAGS)
 
-client: client.o
-	$(CC) $(CFLAGS) -o client client.o
+file: 
+	$(CC) $(FILE).c -o $(FILE) $(CFLAGS) $(SFLAGS)
 
 clean: 
 	rm -f server client *.o

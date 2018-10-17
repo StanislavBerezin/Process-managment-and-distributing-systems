@@ -30,18 +30,20 @@ struct hostent *he;
 
 int main(int argc, char *argv[])
 {
+    // Need to improve this one
     if ((he = gethostbyname(argv[1])) == NULL)
     { /* get the host info */
-        perror("gethostbyname");
+        printf("[-]Please insert IP address");
         exit(1);
     }
 
     if (argc != 3)
     {
-        printf("Usage: server port_number");
+        printf("[-]Usage: server port_number");
         exit(1);
     }
 
+    // Read PORT Number from argv
     PORT_NUM = atoi(argv[2]);
 
     welcomeToGameScreen();
@@ -72,7 +74,6 @@ void connectToServer()
     server_address.sin_port = htons(PORT_NUM);
     // Connect to 0.0.0.0 IP
     server_address.sin_addr = *((struct in_addr *)he->h_addr);
-
     bzero(&(server_address.sin_zero), 8);
 
     // First Parameter is the actual socket
@@ -81,19 +82,49 @@ void connectToServer()
     // Check for error with the connection
     if (connection_status == -1)
     {
-        printf("There was an error making a connection to the remote socket \n\n\n");
+        printf("[-]There was an error making a connection to the remote socket \n\n\n");
+        exit(1);
     }
 
-    // Recieve data from the server
-    char server_response[256];
-    // Socket / Pointer to the recieve data / size for the response / FLAG
-    recv(network_socket, &server_response, sizeof(server_response), 0);
+    printf("[+]Server Connected ! \n");
 
-    // Print out the server 's response
-    printf(" %s \n", server_response);
+    char msgSend[1024];
 
-    // and then close the socket
-    close(network_socket);
+    while(1){
+        printf("Client: \t");
+        // Read InPut from Client side user
+        scanf("%s", &msgSend[0]);
+        // Send msg to the network socket
+        // socket/ msg / size / flag
+        send(network_socket, msgSend, strlen(msgSend), 0);
+
+        // If user enter :exit
+        if(strcmp(msgSend, ":exit") == 0){
+            // Close the socket port
+            close(network_socket);
+            printf("[-] Disconnected from server. \n");
+            // End Program
+            exit(1);
+        }
+
+        // If we can not receive msg from the server
+        if( recv(network_socket, msgSend, 1024 , 0) < 0 ){
+            printf("[-] Error in receiving data. \n");
+        } else {
+            printf("Server : \t%s\n", msgSend);
+        }
+    }
+
+    // // Recieve data from the server
+    // char server_response[256];
+    // // Socket / Pointer to the recieve data / size for the response / FLAG
+    // recv(network_socket, &server_response, sizeof(server_response), 0);
+
+    // // Print out the server 's response
+    // printf(" %s \n", server_response);
+
+    // // and then close the socket
+    // close(network_socket);
 }
 
 // Function definitions

@@ -37,12 +37,14 @@ int main(int argc, char *argv[])
 {
     // Save PORT NUM from terminal argc
     if (argc != 2){
-		printf("Usage: server port_number \n");
+		printf("[-] Usage: server port_number \n");
 		exit(1);
 	}
+    // ASCII to Int for PORT Number
 	PORT_NUM = atoi(argv[1]);
 
     signal(SIGINT, exitGame);
+
     SendWelcomeMsg();
     return 1;
 }
@@ -53,36 +55,92 @@ void SendWelcomeMsg(){
     // Notes: It is just a testing function, will change later on
 
     // create the server socket
-    int server_socket;
-    server_socket = socket(AF_INET, SOCK_STREAM, 0);
-
+    int server_socket, ret;
     //define the server address
     struct sockaddr_in server_address;
+
+    int client_socket;
+    struct sockaddr_in client_address;
+
+    socklen_t addr_size;
+
+    char buffer[1024];
+    pid_t childpid;
+
+    // Server Socket init
+    server_socket = socket(AF_INET, SOCK_STREAM, 0);
+    // Check Socket Connection
+    if (server_socket < 0){
+        printf("[-]Error in connection \n");
+        exit(1);
+    }
+
+    printf("[+]Server Socket is created. \n");
+
+    memset(&server_address, '\0', sizeof(server_address) );
     server_address.sin_family = AF_INET;
     server_address.sin_port = htons(PORT_NUM);
     // basically will result to any IP address on the local machine
     server_address.sin_addr.s_addr = INADDR_ANY;
 
     // bind the socket to our specified IP and port 
-    bind(server_socket, (struct sockaddr*) &server_address, sizeof(server_address));
+    ret = bind(server_socket, (struct sockaddr*) &server_address, sizeof(server_address));
 
-    printf("start listening to the client!!! \n");
+    if( ret <0 ){
+        printf("[-]Fail to bind to specified IP and port \n");
+        exit(1);
+    }
+
+    printf("[+]Bind successfully to port %d \n ", PORT_NUM);
+
+    printf("[+]Start listening to the client!!! \n");
     // *** Important *** second argument is a backlog which is 
     // how many connection can be waiting for this particular socket at one point in time
-    listen(server_socket, 5);
-    
-    // Get the socket
-    int client_socket;
-    client_socket = accept(server_socket, NULL, NULL);
-    printf("Package get from the client!!! \n");
+    if (listen(server_socket, 10) == 0){
+        printf("[+]Listening.... \n");
+    } else {
+        printf("[-]Error in binding. \n");
+        exit(1);
+    }
 
-    // Send the message
-    char server_message[255] = "Welcome to Minesweeper in C! ";
-    send(client_socket, server_message, sizeof(server_message), 0);
+    while(1){
+        client_socket = accept(server_socket, (struct sockaddr *) &client_address, &addr_size );
 
-    printf("Close the Socket \n");
+        if (client_socket < 0){
+            exit(1);
+        }
+
+        printf("[+]Connection accepted from %s:%d \n", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port) );
+
+        if ( (childpid = fork() ) == 0){
+            close(server_socket);
+
+            while(1){
+                recv(client_socket, buffer, 1024, 0);
+                if (strcmp(buffer, ":exit") == 0 ){
+                    printf("[-]Disconnected from %s:%d \n", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port) );
+                    break;
+                } else {
+                    printf("Client : %s \n", buffer);
+                    send(client_socket, buffer, strlen(buffer), 0);
+                    bzero(buffer, sizeof(buffer));
+                }
+
+            }
+        }
+    }
+
+    // // Get the socket
+    // client_socket = accept(server_socket, NULL, NULL);
+    // printf("Package get from the client!!! \n");
+
+    // // Send the message
+    // char server_message[255] = "Welcome to Minesweeper in C! ";
+    // send(client_socket, server_message, sizeof(server_message), 0);
+
+    // printf("Close the Socket \n");
     
-    // Close the socket
+    // Close the socket connection
     close(server_socket);
 }
 

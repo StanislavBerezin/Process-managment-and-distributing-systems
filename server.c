@@ -8,6 +8,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <stdbool.h>
 
 //Sokcet Header file
 #include <netinet/in.h>
@@ -25,10 +26,20 @@
 
 //Connection
 int PORT_NUM;
+int client_socket, server_socket;
+struct sockaddr_in client_address, server_address;
+
+//Process
+pid_t childpid;
+
+// Variable
+char buffer[1024];
 
 // functions declarations
 void init();
 void exitGame();
+void ServerSetUP();
+void CheckLoginDetails();
 void SendWelcomeMsg();
 
 // Main function
@@ -45,27 +56,67 @@ int main(int argc, char *argv[])
 
     signal(SIGINT, exitGame);
 
-    SendWelcomeMsg();
+    ServerSetUP();
+
+    while(1){
+        // if ( (childpid = fork() ) == 0){
+        //     close(server_socket);
+        //     CheckLoginDetails();
+        // }
+        CheckLoginDetails();
+    }
+    free(buffer);
+    // Close the socket connection
+    close(server_socket);
     return 1;
+}
+
+void CheckLoginDetails(){
+    bool username, password = false;
+
+    // To Stas: It is almost finished.
+    // I don't know why sometime it didn't quit the while loop
+    // It also happens on Client Side
+    
+    // Something Stupid wrong with the While loop
+    while (username == false){
+        recv(client_socket, buffer, 1024, 0);
+
+        printf("Client Said UserName is %s \n", buffer);
+
+        if(strcmp(buffer, "Eric") == 0){
+            strcpy(buffer, "Username Correct");
+            username = true;
+        } else {
+            strcpy(buffer, "Username inCorrect");
+        }
+        send(client_socket, buffer, sizeof(buffer), 0);
+        bzero(buffer, sizeof(buffer));
+    }
+
+    while (password == false){
+        recv(client_socket, buffer, 1024, 0);
+
+        printf("Client Said Password is %s \n", buffer);
+
+        if (strcmp(buffer, "123456") == 0){
+            strcpy(buffer, "Password Correct");
+            password = true;
+        } else {
+            strcpy(buffer, "Password inCorrect");
+        }
+        send(client_socket, buffer, sizeof(buffer), 0);
+        bzero(buffer, sizeof(buffer));
+    }
+    
 }
 
 // Function definitions
 // Send Message back to Client
-void SendWelcomeMsg(){
+void ServerSetUP(){
     // Notes: It is just a testing function, will change later on
 
-    // create the server socket
-    int server_socket, ret;
-    //define the server address
-    struct sockaddr_in server_address;
-
-    int client_socket;
-    struct sockaddr_in client_address;
-
     socklen_t addr_size;
-
-    char buffer[1024];
-    pid_t childpid;
 
     // Server Socket init
     server_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -84,7 +135,7 @@ void SendWelcomeMsg(){
     server_address.sin_addr.s_addr = INADDR_ANY;
 
     // bind the socket to our specified IP and port 
-    ret = bind(server_socket, (struct sockaddr*) &server_address, sizeof(server_address));
+    int ret = bind(server_socket, (struct sockaddr*) &server_address, sizeof(server_address));
 
     if( ret <0 ){
         printf("[-]Fail to bind to specified IP and port \n");
@@ -103,45 +154,15 @@ void SendWelcomeMsg(){
         exit(1);
     }
 
-    while(1){
-        client_socket = accept(server_socket, (struct sockaddr *) &client_address, &addr_size );
+    client_socket = accept(server_socket, (struct sockaddr *) &client_address, &addr_size );
 
-        if (client_socket < 0){
-            exit(1);
-        }
-
-        printf("[+]Connection accepted from %s:%d \n", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port) );
-
-        if ( (childpid = fork() ) == 0){
-            close(server_socket);
-
-            while(1){
-                recv(client_socket, buffer, 1024, 0);
-                if (strcmp(buffer, ":exit") == 0 ){
-                    printf("[-]Disconnected from %s:%d \n", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port) );
-                    break;
-                } else {
-                    printf("Client : %s \n", buffer);
-                    send(client_socket, buffer, strlen(buffer), 0);
-                    bzero(buffer, sizeof(buffer));
-                }
-
-            }
-        }
+    if (client_socket < 0){
+        printf("[-] Client Connection Failed ");
+        exit(1);
     }
 
-    // // Get the socket
-    // client_socket = accept(server_socket, NULL, NULL);
-    // printf("Package get from the client!!! \n");
-
-    // // Send the message
-    // char server_message[255] = "Welcome to Minesweeper in C! ";
-    // send(client_socket, server_message, sizeof(server_message), 0);
-
-    // printf("Close the Socket \n");
+    printf("[+]Connection accepted from %s:%d \n", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port) );
     
-    // Close the socket connection
-    close(server_socket);
 }
 
 // initialising game

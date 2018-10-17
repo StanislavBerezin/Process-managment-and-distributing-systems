@@ -22,12 +22,18 @@ char password[PASS_LENGTH];
 void welcomeToGameScreen();
 void authenticate();
 void connectToServer();
-// Main function
+void sendMsgToServer(char * msg, int size);
+void checkExit(char * word);
 
 //Connection Variable
+int network_socket;
 int PORT_NUM;
 struct hostent *he;
 
+// Variable for sending msg to the server
+char msgSend[1024];
+
+// Main function
 int main(int argc, char *argv[])
 {
     // Need to improve this one
@@ -46,21 +52,80 @@ int main(int argc, char *argv[])
     // Read PORT Number from argv
     PORT_NUM = atoi(argv[2]);
 
-    welcomeToGameScreen();
     connectToServer();
+    welcomeToGameScreen();
+    while(1){
+        authenticate();
+    }
     return 1;
 }
+
 // need to send details to server from char username and password
-void authentate()
+void authenticate()
 {
+    int loggedIn = 0;
+    // To Stas: It is almost finished.
+    // I don't know why sometime it didn't quit the while loop
+    // It also happens on Server Side
+    while(loggedIn == 0){
+
+        while( strcmp(msgSend, "Username Correct") != 0 ){
+            printf("Client: \t");
+            // Read InPut from Client side user
+            printf("Enter your username: ");
+            scanf("%s", msgSend);
+            send(network_socket, msgSend, 1024, 0);
+            recv(network_socket, msgSend, 1024 , 0);
+            printf("%s \n", msgSend);
+        }
+
+        while( strcmp(msgSend, "Password Correct") != 0 ){
+            printf("Client: \t");
+            // Read InPut from Client side user
+            printf("Enter your password: ");
+            scanf("%s", msgSend);
+            send(network_socket, msgSend, 1024, 0);
+            recv(network_socket, msgSend, 1024 , 0);
+            printf("%s \n", msgSend);
+        }
+
+        loggedIn++;
+
+    }
 }
+
+// When user connected to the server, they can insert :exit to kill the connection
+void checkExit(char * msg)
+{
+    // If user enter :exit
+    if(strcmp(msg, ":exit") == 0){
+        // Close the socket port
+        close(network_socket);
+        printf("[-] Disconnected from server. \n");
+        // End Program
+        exit(1);
+    }
+}
+
+// Print Server response msg on the terminal 
+void sendMsgToServer(char * msg, int size){
+    // Send msg to the network socket
+    // socket/ msg / size / flag
+    send(network_socket, msg, size, 0);
+
+    // If we can not receive msg from the server
+    if( recv(network_socket, msg, size , 0) < 0 ){
+        printf("[-] Error in receiving data. \n");
+    } else {
+        printf("Server : \t%s\n", msgSend);
+    }
+}
+
 // connect to server
 void connectToServer()
 {
     // Notes: Simple demo for testing Connection, will change later on
 
-    // Create a socket
-    int network_socket;
     // First Parameter is the domain of the socket -> Becuase it is internet socket so it is AF_INET
     // Second Parameter SOCK_STEAM = Using TCP
     // thrid Parameter is define the protocol we use 0 for TCP
@@ -87,44 +152,6 @@ void connectToServer()
     }
 
     printf("[+]Server Connected ! \n");
-
-    char msgSend[1024];
-
-    while(1){
-        printf("Client: \t");
-        // Read InPut from Client side user
-        scanf("%s", &msgSend[0]);
-        // Send msg to the network socket
-        // socket/ msg / size / flag
-        send(network_socket, msgSend, strlen(msgSend), 0);
-
-        // If user enter :exit
-        if(strcmp(msgSend, ":exit") == 0){
-            // Close the socket port
-            close(network_socket);
-            printf("[-] Disconnected from server. \n");
-            // End Program
-            exit(1);
-        }
-
-        // If we can not receive msg from the server
-        if( recv(network_socket, msgSend, 1024 , 0) < 0 ){
-            printf("[-] Error in receiving data. \n");
-        } else {
-            printf("Server : \t%s\n", msgSend);
-        }
-    }
-
-    // // Recieve data from the server
-    // char server_response[256];
-    // // Socket / Pointer to the recieve data / size for the response / FLAG
-    // recv(network_socket, &server_response, sizeof(server_response), 0);
-
-    // // Print out the server 's response
-    // printf(" %s \n", server_response);
-
-    // // and then close the socket
-    // close(network_socket);
 }
 
 // Function definitions
@@ -134,8 +161,4 @@ void welcomeToGameScreen()
     puts("Welcome to the online minesweeper gaming system.\n ");
     puts("=======================================================================\n \n");
     puts("You are required to login with your registered username and password to play");
-    printf("Enter your username: ");
-    scanf("%s", username);
-    printf("Enter your password: ");
-    scanf("%s", password);
 }

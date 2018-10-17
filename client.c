@@ -1,20 +1,18 @@
 #include <stdio.h>
 #include <signal.h>
 #include <strings.h>
-#include <netdb.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
 
 //Sokcet Header file
+#include <netdb.h>
 #include <netinet/in.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 
 #define NAME_LENGTH 7
 #define PASS_LENGTH 6
-//Connection
-#define PORT_NUMBER 9002
 
 char username[NAME_LENGTH];
 char password[PASS_LENGTH];
@@ -25,8 +23,24 @@ void authenticate();
 void connectToServer();
 // Main function
 
+//Connection Variable
+int PORT_NUM;
+struct hostent * he;
+
 int main(int argc, char *argv[])
 {
+    if ( (he=gethostbyname(argv[1])) == NULL) {  /* get the host info */
+		perror("gethostbyname");
+		exit(1);
+	}
+
+	if (argc != 3){
+		printf("Usage: server port_number");
+		exit(1);
+	}
+
+    PORT_NUM = atoi(argv[2]);
+
     welcomeToGameScreen();
     connectToServer();
     return 1;
@@ -39,6 +53,7 @@ void authentate()
 void connectToServer()
 {
     // Notes: Simple demo for testing Connection, will change later on
+    
 
     // Create a socket
     int network_socket;
@@ -52,9 +67,11 @@ void connectToServer()
     // Becuase it is internet socket so it is AF_INET
     server_address.sin_family = AF_INET;
     // Using 9002 Por
-    server_address.sin_port = htons(9002);
+    server_address.sin_port = htons(PORT_NUM);
     // Connect to 0.0.0.0 IP
-    server_address.sin_addr.s_addr = INADDR_ANY;
+    server_address.sin_addr = *((struct in_addr *)he->h_addr );
+
+    bzero(&(server_address.sin_zero), 8);
 
     // First Parameter is the actual socket
     int connection_status = connect(network_socket, (struct sockaddr*) &server_address, sizeof(server_address) );

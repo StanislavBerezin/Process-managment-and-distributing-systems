@@ -13,6 +13,8 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/wait.h> 
+#include <errno.h> 
 
 #define AUTH_TXT "Authentication.txt"
 
@@ -22,16 +24,24 @@
 #define NUM_TILES_Y 9
 
 //Connection
-#define PORT_NUMBER 9002
+int PORT_NUM;
 
 // functions declarations
 void init();
 void exitGame();
+void SendWelcomeMsg();
 
 // Main function
 
 int main(int argc, char *argv[])
 {
+    // Save PORT NUM from terminal argc
+    if (argc != 2){
+		printf("Usage: server port_number \n");
+		exit(1);
+	}
+	PORT_NUM = atoi(argv[1]);
+
     signal(SIGINT, exitGame);
     SendWelcomeMsg();
     return 1;
@@ -49,7 +59,7 @@ void SendWelcomeMsg(){
     //define the server address
     struct sockaddr_in server_address;
     server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(9002);
+    server_address.sin_port = htons(PORT_NUM);
     // basically will result to any IP address on the local machine
     server_address.sin_addr.s_addr = INADDR_ANY;
 

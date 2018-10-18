@@ -23,14 +23,14 @@ char password[PASS_LENGTH];
 void welcomeToGameScreen();
 
 void connectToServer(int *argc, char *argv[]);
-void sendMsgToServer();
+void sendMsgToServer(char * msg);
 void ReceiveMsgFromServer();
 
 int authenticate();
 void selectMode();
 void displayMenu();
 void quitGame();
-void checkExit(char * word);
+void checkExit();
 
 //Connection Variable
 int network_socket, flag;
@@ -42,19 +42,22 @@ struct hostent *he;
 struct sockaddr_in server_address;
 
 // Variable for sending msg to the server
-
 char buffer[MAXBUFFERSIZE];
 
 // Main function
 int main(int argc, char *argv[])
 {
     connectToServer(&argc, argv);
+
     welcomeToGameScreen();
     while(login == 0){
+        // If the user information is wrong it will keep looping
+        // If it is correct, it will jump out of the loop
         login = authenticate();
     }
 
-    while (1){
+    // Login Successfully, we can play the game now. do something you want here!
+    while (login == 1){
         displayMenu();
     }
     return 1;
@@ -67,11 +70,16 @@ int authenticate()
     scanf("%s", username);
     printf("Please insert your password: \n");
     scanf("%s", password);
+
+    // Copy the message into buffer
     sprintf(buffer, "%s %s", username, password);
-    sendMsgToServer();
+
+    sendMsgToServer(buffer);
     ReceiveMsgFromServer();
 
+    // If the Server return "login success" msg to the buffer
     if (strcmp(buffer, "login success") == 0){
+        //terminate the authenticate function
         return 1;
     } else {
         return 0;
@@ -79,10 +87,10 @@ int authenticate()
 }
 
 // When user connected to the server, they can insert :exit to kill the connection
-void checkExit(char * msg)
+void checkExit()
 {
     // If user enter :exit
-    if(strcmp(msg, ":exit") == 0){
+    if(strcmp(buffer, ":exit") == 0){
         // Close the socket port
         close(network_socket);
         printf("[-] Disconnected from server. \n");
@@ -92,7 +100,11 @@ void checkExit(char * msg)
 }
 
 // Print Server response msg on the terminal 
-void sendMsgToServer(){
+void sendMsgToServer(char * msg){
+
+    // Copy the msg to the buffer in order to send it to server
+    strcpy(buffer, msg);
+    checkExit();
     // Send msg to the network socket
     // You only need to change the value of buffer outside
     if (send(network_socket, buffer, MAXBUFFERSIZE, 0) == -1) { 
@@ -105,10 +117,12 @@ void sendMsgToServer(){
 
 void ReceiveMsgFromServer(){
     // If we can not receive msg from the server
-    if( recv(network_socket, buffer, MAXBUFFERSIZE , 0) < 0 ){
+    if(recv(network_socket, buffer, MAXBUFFERSIZE , 0) < 0 ){
         printf("[-] Error in receiving data. \n");
         close(network_socket);
+        exit(1);
     } else {
+        // Return Server Response on Screen
         printf("Server : \t%s\n", buffer);
     }
 }
@@ -116,7 +130,6 @@ void ReceiveMsgFromServer(){
 // connect to server
 void connectToServer(int *argc, char *argv[])
 {
-
     // Need to improve this one
     if ((he = gethostbyname(argv[1])) == NULL)
     { /* get the host info */
@@ -124,6 +137,7 @@ void connectToServer(int *argc, char *argv[])
         exit(1);
     }
 
+    // Command line argcs must be three for configure the network connection
     if (*argc != 3)
     {
         printf("[-]usage: ./client hostname port\n");
@@ -137,6 +151,7 @@ void connectToServer(int *argc, char *argv[])
     // Second Parameter SOCK_STEAM = Using TCP
     // thrid Parameter is define the protocol we use 0 for TCP
     if ( (network_socket = socket(AF_INET, SOCK_STREAM, 0)) == -1 ) {
+        close(network_socket);
         printf("[-] Socket Creation fail... \n");
         exit(1);
     }
@@ -153,6 +168,7 @@ void connectToServer(int *argc, char *argv[])
     if (connection_status == -1)
     {
         printf("[-]There was an error making a connection to the remote socket \n\n\n");
+        close(network_socket);
         exit(1);
     }
 
@@ -165,7 +181,7 @@ void displayMenu(void){
 	char command[32];
 
 	puts("Please enter a selection:\n");
-	puts("<1> Play Game");
+	puts("<1> Play Minesweeper");
 	puts("<2> Show Leaderboard");
 	puts("<3> Quit\n");
 	printf("Enter an option (1-3): ");

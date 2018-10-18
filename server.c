@@ -19,6 +19,7 @@
 
 #define AUTH_TXT "Authentication.txt"
 #define MAXBUFFERSIZE 512
+#define DEFAULT_PORT 12345
 
 #define RANDOM_NUMBER_SEED 42
 #define MINES_NUMBER 10
@@ -41,11 +42,12 @@ char buffer[MAXBUFFERSIZE];
 // functions declarations
 void readAuthTxt();
 void init();
-void sendMsgToClient();
+void sendMsgToClient(char * msg);
 void ReceiveMsgFromClient();
+void quitAndCloseSocket();
 
 void exitGame();
-void ServerSetUP();
+void ServerSetUP(int *argc, char *argv[]);
 int CheckLoginDetails();
 void SendWelcomeMsg();
 
@@ -58,17 +60,10 @@ struct User {
 
 int main(int argc, char *argv[])
 {
-    // Save PORT NUM from terminal argc
-    if (argc != 2){
-		printf("[-] Usage: server port_number \n");
-		exit(1);
-	}
-    // ASCII to Int for PORT Number
-	PORT_NUM = atoi(argv[1]);
 
     signal(SIGINT, exitGame);
     readAuthTxt();
-    ServerSetUP();
+    ServerSetUP(&argc, argv);
 
     while (loggedIn == 0){
         loggedIn = CheckLoginDetails();
@@ -80,7 +75,7 @@ int main(int argc, char *argv[])
     // }
     // free(buffer);
     // Close the socket connection
-    close(server_socket);
+    quitAndCloseSocket();
     return 1;
 }
 
@@ -91,38 +86,37 @@ int CheckLoginDetails(){
     char * username = strtok(buffer, " ");
     char * password = strtok(NULL, "");
 
+    // Print the username list on the server side. it just only for development
+    // need to delete it once we finished the project
     printf("Seperated String from buffer: username: %s, password: %s \n", username, password);
 
     for (int i = 1; i < user_list_count; i++){
 
         printf("Users[%d] - username = %s , password = %s \n\n", i ,users[i].username, users[i].password);
 
+        // If username match one of the user on the list
         if (strcmp(users[i].username, username) == 0){
-
+            // If password match 
             if (strcmp(users[i].password, password) == 0){
-
-                strcpy(buffer, "login success");
-                sendMsgToClient();
+                sendMsgToClient("login success");
                 return 1; 
-
             } 
         }
     }
 
-    strcpy(buffer, "failed");
-    sendMsgToClient();
-
+    sendMsgToClient("login fail! Please check the username and password");
 	return 0;
     
 }
 
-void sendMsgToClient(){
+// Function for sending msg to the client
+void sendMsgToClient(char * msg){
+    strcpy(buffer, msg);
     // Send msg to the network socket
     // You only need to change the value of buffer outside
     if (send(client_socket, buffer, MAXBUFFERSIZE, 0) == -1) { 
         printf("[-] Error in sending data. \n");
-        close(client_socket);
-        exit(1);
+        quitAndCloseSocket();
     }
 }
 
@@ -130,8 +124,7 @@ void ReceiveMsgFromClient(){
     // If we can not receive msg from the server
     if( recv(client_socket, buffer, MAXBUFFERSIZE , 0) < 0 ){
         printf("[-] Error in receiving data. \n");
-        close(client_socket);
-        exit(1);
+        quitAndCloseSocket();
     } else {
         printf("client : \t%s\n", buffer);
     }
@@ -139,8 +132,19 @@ void ReceiveMsgFromClient(){
 
 // Function definitions
 // Send Message back to Client
-void ServerSetUP(){
+void ServerSetUP(int *argc, char *argv[]){
     // Notes: It is just a testing function, will change later on
+
+    // Save PORT NUM from terminal argc
+    if (*argc == 1){
+        PORT_NUM = DEFAULT_PORT;
+	} else if (*argc == 2){
+        // ASCII to Int for PORT Number
+        PORT_NUM = atoi(argv[1]);
+    } else {
+        printf("[-] This Program take only one command line parameter for the PORT \n");
+		exit(1);
+    }
 
     socklen_t addr_size;
 
@@ -149,7 +153,7 @@ void ServerSetUP(){
     // Check Socket Connection
     if (server_socket < 0){
         printf("[-]Error in connection \n");
-        exit(1);
+        quitAndCloseSocket();
     }
 
     printf("[+]Server Socket is created. \n");
@@ -165,7 +169,7 @@ void ServerSetUP(){
 
     if( ret <0 ){
         printf("[-]Fail to bind to specified IP and port \n");
-        exit(1);
+        quitAndCloseSocket();
     }
 
     printf("[+]Bind successfully to port %d \n ", PORT_NUM);
@@ -177,7 +181,7 @@ void ServerSetUP(){
         printf("[+]Listening.... \n");
     } else {
         printf("[-]Error in binding. \n");
-        exit(1);
+        quitAndCloseSocket();
     }
 
     client_socket = accept(server_socket, (struct sockaddr *) &client_address, &addr_size );
@@ -185,13 +189,14 @@ void ServerSetUP(){
     // Might need to change something, always failed here
     if (client_socket < 0){
         printf("[-] Client Connection Failed ");
-        exit(1);
+        quitAndCloseSocket();
     }
 
     printf("[+]Connection accepted from %s:%d \n", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port) );
     
 }
 
+// Read the Authentication.Txt file, and save the data in users pointer for checking login validation
 void readAuthTxt(){
     FILE * file_pointer;
 
@@ -206,7 +211,6 @@ void readAuthTxt(){
             user_list_count++;
         } 
 	}
-
 	rewind(file_pointer);
 
 	users = malloc(sizeof(struct User) * user_list_count);
@@ -221,6 +225,10 @@ void readAuthTxt(){
 		strcpy(users[i].password, password);
 	}
 
+    if (user_list_count == 0){
+        printf("[-]Can not read the AUTH_TXT file. Please check it... \n\n");
+        exit(1);
+    }
 	fclose(file_pointer);
 }
 
@@ -235,11 +243,15 @@ void initGame()
 void exitGame()
 {
     printf("\n\n Ctrl+c was pressed, caused an interupt, closing connection \n\n");
-
     // will need to free memory here
+    free(users);
+    printf("Memory has been freed, sockets and memory are down\n");
+    quitAndCloseSocket();
+}
+
+void quitAndCloseSocket(){
     close(server_socket);
     close(client_socket);
-    printf("Memory has been freed, sockets and memory are down\n");
     exit(1);
 }
 

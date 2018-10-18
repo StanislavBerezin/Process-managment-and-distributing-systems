@@ -18,6 +18,7 @@
 #include <errno.h> 
 
 #define AUTH_TXT "Authentication.txt"
+#define MAXBUFFERSIZE 512
 
 #define RANDOM_NUMBER_SEED 42
 #define MINES_NUMBER 10
@@ -33,13 +34,13 @@ struct sockaddr_in client_address, server_address;
 pid_t childpid;
 
 // Variable
-char buffer[1024];
+char buffer[MAXBUFFERSIZE];
 
 // functions declarations
 void init();
 void exitGame();
 void ServerSetUP();
-void CheckLoginDetails();
+int CheckLoginDetails();
 void SendWelcomeMsg();
 
 // Main function
@@ -58,55 +59,47 @@ int main(int argc, char *argv[])
 
     ServerSetUP();
 
-    while(1){
-        // if ( (childpid = fork() ) == 0){
-        //     close(server_socket);
-        //     CheckLoginDetails();
-        // }
-        CheckLoginDetails();
+    while(CheckLoginDetails()){
+        
     }
+
+
+    // if ( (childpid = fork() ) == 0){
+    //     close(server_socket);
+    //     CheckLoginDetails();
+    // }
     free(buffer);
     // Close the socket connection
     close(server_socket);
     return 1;
 }
 
-void CheckLoginDetails(){
-    bool username, password = false;
+int CheckLoginDetails(){
 
     // To Stas: It is almost finished.
     // I don't know why sometime it didn't quit the while loop
     // It also happens on Client Side
+
+    int loggedIn = 0;
     
     // Something Stupid wrong with the While loop
-    while (username == false){
-        recv(client_socket, buffer, 1024, 0);
-
+    while (loggedIn == 0){
+        recv(client_socket, buffer, MAXBUFFERSIZE, 0);
         printf("Client Said UserName is %s \n", buffer);
 
-        if(strcmp(buffer, "Eric") == 0){
-            strcpy(buffer, "Username Correct");
-            username = true;
+        if(strcmp(buffer, "Eric 123456") == 0){
+            strcpy(buffer, "login success");
+            printf("[+] Login Success ! \n ");
+            send(client_socket, buffer, sizeof(buffer), 0);
+            bzero(buffer, sizeof(buffer));
+            return 0;
         } else {
-            strcpy(buffer, "Username inCorrect");
+            strcpy(buffer, "login Fail \n");
+
+            send(client_socket, buffer, sizeof(buffer), 0);
+            bzero(buffer, sizeof(buffer));
+            return 1;
         }
-        send(client_socket, buffer, sizeof(buffer), 0);
-        bzero(buffer, sizeof(buffer));
-    }
-
-    while (password == false){
-        recv(client_socket, buffer, 1024, 0);
-
-        printf("Client Said Password is %s \n", buffer);
-
-        if (strcmp(buffer, "123456") == 0){
-            strcpy(buffer, "Password Correct");
-            password = true;
-        } else {
-            strcpy(buffer, "Password inCorrect");
-        }
-        send(client_socket, buffer, sizeof(buffer), 0);
-        bzero(buffer, sizeof(buffer));
     }
     
 }
@@ -156,6 +149,7 @@ void ServerSetUP(){
 
     client_socket = accept(server_socket, (struct sockaddr *) &client_address, &addr_size );
 
+    // Might need to change something, always failed here
     if (client_socket < 0){
         printf("[-] Client Connection Failed ");
         exit(1);

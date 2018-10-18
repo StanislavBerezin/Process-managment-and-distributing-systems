@@ -13,6 +13,7 @@
 
 #define NAME_LENGTH 7
 #define PASS_LENGTH 6
+#define MAXBUFFERSIZE 512
 #define h_addr h_addr_list[0]
 
 char username[NAME_LENGTH];
@@ -20,78 +21,59 @@ char password[PASS_LENGTH];
 
 // functions declarations
 void welcomeToGameScreen();
-void authenticate();
-void connectToServer();
-void sendMsgToServer(char * msg, int size);
+int authenticate();
+void connectToServer(int *argc, char *argv[]);
+void send_Msg_receive_res(char * msg);
+void send_Msg(int socket, char * msg);
+void selectMode();
+void displayMenu();
+void quitGame();
 void checkExit(char * word);
 
 //Connection Variable
-int network_socket;
+int network_socket, flag;
 int PORT_NUM;
 struct hostent *he;
 
+// Specify an address for the socket
+struct sockaddr_in server_address;
+
 // Variable for sending msg to the server
-char msgSend[1024];
+
+char buffer[MAXBUFFERSIZE];
 
 // Main function
 int main(int argc, char *argv[])
 {
-    // Need to improve this one
-    if ((he = gethostbyname(argv[1])) == NULL)
-    { /* get the host info */
-        printf("[-]Please insert IP address");
-        exit(1);
-    }
-
-    if (argc != 3)
-    {
-        printf("[-]Usage: server port_number");
-        exit(1);
-    }
-
-    // Read PORT Number from argv
-    PORT_NUM = atoi(argv[2]);
-
-    connectToServer();
+    connectToServer(&argc, argv);
     welcomeToGameScreen();
-    while(1){
-        authenticate();
+    while(authenticate()){
+    }
+
+    while (1){
+        displayMenu();
     }
     return 1;
 }
 
 // need to send details to server from char username and password
-void authenticate()
+int authenticate()
 {
-    int loggedIn = 0;
-    // To Stas: It is almost finished.
-    // I don't know why sometime it didn't quit the while loop
-    // It also happens on Server Side
-    while(loggedIn == 0){
+    printf("Please insert your username: \n");
+    scanf("%s", username);
+    printf("Please insert your password: \n");
+    scanf("%s", password);
+    sprintf(buffer, "%s %s", username, password);
+    send(network_socket, buffer, sizeof buffer, 0);
+    recv(network_socket, buffer, MAXBUFFERSIZE, 0);
 
-        while( strcmp(msgSend, "Username Correct") != 0 ){
-            printf("Client: \t");
-            // Read InPut from Client side user
-            printf("Enter your username: ");
-            scanf("%s", msgSend);
-            send(network_socket, msgSend, 1024, 0);
-            recv(network_socket, msgSend, 1024 , 0);
-            printf("%s \n", msgSend);
-        }
-
-        while( strcmp(msgSend, "Password Correct") != 0 ){
-            printf("Client: \t");
-            // Read InPut from Client side user
-            printf("Enter your password: ");
-            scanf("%s", msgSend);
-            send(network_socket, msgSend, 1024, 0);
-            recv(network_socket, msgSend, 1024 , 0);
-            printf("%s \n", msgSend);
-        }
-
-        loggedIn++;
-
+    if (strcmp(buffer, "login success") == 0){
+        return 0;
+    } else {
+        return 1;
     }
+    printf("%s", buffer);
+
 }
 
 // When user connected to the server, they can insert :exit to kill the connection
@@ -117,22 +99,38 @@ void sendMsgToServer(char * msg, int size){
     if( recv(network_socket, msg, size , 0) < 0 ){
         printf("[-] Error in receiving data. \n");
     } else {
-        printf("Server : \t%s\n", msgSend);
+        printf("Server : \t%s\n", buffer);
     }
 }
 
 // connect to server
-void connectToServer()
+void connectToServer(int *argc, char *argv[])
 {
     // Notes: Simple demo for testing Connection, will change later on
+
+    // Need to improve this one
+    if ((he = gethostbyname(argv[1])) == NULL)
+    { /* get the host info */
+        printf("[-]get host by name\n");
+        exit(1);
+    }
+
+    if (*argc != 3)
+    {
+        printf("[-]usage: ./client hostname port\n");
+        exit(1);
+    }
+
+    // Read PORT Number from argv
+    PORT_NUM = atoi(argv[2]);
 
     // First Parameter is the domain of the socket -> Becuase it is internet socket so it is AF_INET
     // Second Parameter SOCK_STEAM = Using TCP
     // thrid Parameter is define the protocol we use 0 for TCP
-    network_socket = socket(AF_INET, SOCK_STREAM, 0);
-
-    // Specify an address for the socket
-    struct sockaddr_in server_address;
+    if ( (network_socket = socket(AF_INET, SOCK_STREAM, 0)) == -1 ) {
+        printf("[-] Socket Creation fail... \n");
+        exit(1);
+    }
     // Becuase it is internet socket so it is AF_INET
     server_address.sin_family = AF_INET;
     // Using 9002 Por
@@ -161,4 +159,55 @@ void welcomeToGameScreen()
     puts("Welcome to the online minesweeper gaming system.\n ");
     puts("=======================================================================\n \n");
     puts("You are required to login with your registered username and password to play");
+
+    puts("=====================================================================================");
+	puts("\n");
+	puts("                                  Please login to the server.");
+	puts("\n");
+	puts("=====================================================================================");
+	puts("");
+}
+
+void displayMenu(void){
+
+	char command[32];
+
+	puts("Please enter a selection:\n");
+	puts("<1> Play Game");
+	puts("<2> Show Leaderboard");
+	puts("<3> Quit\n");
+	printf("Enter an option (1-3): ");
+	scanf("%s", command);
+	command[1] = '\0';
+
+	selectMode(atoi(command));
+
+}
+
+void selectMode(int commandId) {
+	switch(commandId){
+		case 1:
+			// hangman();
+		break;
+		case 2:
+			// leaderboard();
+		break;
+		case 3:
+			quitGame();
+		break;
+		default:
+			displayMenu();
+		break;
+	}
+}
+
+void quitGame(){
+    close(network_socket);
+	puts("\n=====================================================================================");
+	puts("\n");
+	puts("                                 Thanks for playing!!");
+	puts("                                       See you again!!");
+	puts("\n");
+	puts("=====================================================================================");
+	exit(1);
 }

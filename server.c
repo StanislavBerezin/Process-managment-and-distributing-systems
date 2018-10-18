@@ -28,7 +28,9 @@
 //Connection
 int PORT_NUM;
 int client_socket, server_socket;
+int user_list_count; //Counter for the AuthTxt file
 struct sockaddr_in client_address, server_address;
+int loggedIn;
 
 //Process
 pid_t childpid;
@@ -37,11 +39,20 @@ pid_t childpid;
 char buffer[MAXBUFFERSIZE];
 
 // functions declarations
+void readAuthTxt();
 void init();
+void sendMsgToClient();
+void ReceiveMsgFromClient();
+
 void exitGame();
 void ServerSetUP();
 int CheckLoginDetails();
 void SendWelcomeMsg();
+
+struct User {
+	char * username;
+	char * password;
+} * users;
 
 // Main function
 
@@ -56,52 +67,74 @@ int main(int argc, char *argv[])
 	PORT_NUM = atoi(argv[1]);
 
     signal(SIGINT, exitGame);
-
+    readAuthTxt();
     ServerSetUP();
 
-    while(CheckLoginDetails()){
-        
+    while (loggedIn == 0){
+        loggedIn = CheckLoginDetails();
     }
-
 
     // if ( (childpid = fork() ) == 0){
     //     close(server_socket);
     //     CheckLoginDetails();
     // }
-    free(buffer);
+    // free(buffer);
     // Close the socket connection
     close(server_socket);
     return 1;
 }
 
 int CheckLoginDetails(){
-
-    // To Stas: It is almost finished.
-    // I don't know why sometime it didn't quit the while loop
-    // It also happens on Client Side
-
-    int loggedIn = 0;
     
-    // Something Stupid wrong with the While loop
-    while (loggedIn == 0){
-        recv(client_socket, buffer, MAXBUFFERSIZE, 0);
-        printf("Client Said UserName is %s \n", buffer);
+    ReceiveMsgFromClient();
 
-        if(strcmp(buffer, "Eric 123456") == 0){
-            strcpy(buffer, "login success");
-            printf("[+] Login Success ! \n ");
-            send(client_socket, buffer, sizeof(buffer), 0);
-            bzero(buffer, sizeof(buffer));
-            return 0;
-        } else {
-            strcpy(buffer, "login Fail \n");
+    char * username = strtok(buffer, " ");
+    char * password = strtok(NULL, "");
 
-            send(client_socket, buffer, sizeof(buffer), 0);
-            bzero(buffer, sizeof(buffer));
-            return 1;
+    printf("Seperated String from buffer: username: %s, password: %s \n", username, password);
+
+    for (int i = 1; i < user_list_count; i++){
+
+        printf("Users[%d] - username = %s , password = %s \n\n", i ,users[i].username, users[i].password);
+
+        if (strcmp(users[i].username, username) == 0){
+
+            if (strcmp(users[i].password, password) == 0){
+
+                strcpy(buffer, "login success");
+                sendMsgToClient();
+                return 1; 
+
+            } 
         }
     }
+
+    strcpy(buffer, "failed");
+    sendMsgToClient();
+
+	return 0;
     
+}
+
+void sendMsgToClient(){
+    // Send msg to the network socket
+    // You only need to change the value of buffer outside
+    if (send(client_socket, buffer, MAXBUFFERSIZE, 0) == -1) { 
+        printf("[-] Error in sending data. \n");
+        close(client_socket);
+        exit(1);
+    }
+}
+
+void ReceiveMsgFromClient(){
+    // If we can not receive msg from the server
+    if( recv(client_socket, buffer, MAXBUFFERSIZE , 0) < 0 ){
+        printf("[-] Error in receiving data. \n");
+        close(client_socket);
+        exit(1);
+    } else {
+        printf("client : \t%s\n", buffer);
+    }
 }
 
 // Function definitions
@@ -159,6 +192,38 @@ void ServerSetUP(){
     
 }
 
+void readAuthTxt(){
+    FILE * file_pointer;
+
+	// Open a stream to the file
+	file_pointer = fopen(AUTH_TXT, "r");
+
+	user_list_count = 1;
+	int ch = 0;
+
+	while((ch = fgetc(file_pointer)) != EOF){
+		if (ch == '\n') {
+            user_list_count++;
+        } 
+	}
+
+	rewind(file_pointer);
+
+	users = malloc(sizeof(struct User) * user_list_count);
+
+	for (int i = 0; i < user_list_count; i++){
+		char username[64], password[64];
+		fscanf(file_pointer, "%s", username);
+		fscanf(file_pointer, "%s", password);
+		users[i].username = malloc(strlen(username) + 1);
+		users[i].password = malloc(strlen(password) + 1);
+		strcpy(users[i].username, username);
+		strcpy(users[i].password, password);
+	}
+
+	fclose(file_pointer);
+}
+
 // initialising game
 
 void initGame()
@@ -172,7 +237,8 @@ void exitGame()
     printf("\n\n Ctrl+c was pressed, caused an interupt, closing connection \n\n");
 
     // will need to free memory here
-
+    close(server_socket);
+    close(client_socket);
     printf("Memory has been freed, sockets and memory are down\n");
     exit(1);
 }

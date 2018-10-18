@@ -13,6 +13,7 @@
 
 #define NAME_LENGTH 7
 #define PASS_LENGTH 6
+
 #define h_addr h_addr_list[0]
 
 char username[NAME_LENGTH];

@@ -32,6 +32,7 @@ int authenticate();
 void selectMode();
 void displayMenu();
 void quitGame();
+void exitGame();
 void checkExit(char *word);
 
 //Connection Variable
@@ -50,9 +51,10 @@ char buffer[MAXBUFFERSIZE];
 // Main function
 int main(int argc, char *argv[])
 {
+    signal(SIGINT, exitGame);
     connectToServer(&argc, argv);
-
     welcomeToGameScreen();
+
     while (login == 0)
     {
         login = authenticate();
@@ -119,7 +121,7 @@ void ReceiveMsgFromServer()
     // If we can not receive msg from the server
     if (recv(network_socket, buffer, MAXBUFFERSIZE, 0) < 0)
     {
-        printf("[-] Error in receiving data. \n");
+        printf("Error: in receiving data. \n");
         close(network_socket);
     }
     else
@@ -135,13 +137,13 @@ void connectToServer(int *argc, char *argv[])
     // Need to improve this one
     if ((he = gethostbyname(argv[1])) == NULL)
     { /* get the host info */
-        printf("[-]get host by name\n");
+        printf("Error: get host by name\n");
         exit(1);
     }
 
     if (*argc != 3)
     {
-        printf("[-]usage: ./client hostname port\n");
+        printf("Error: usage: ./client hostname port\n");
         exit(1);
     }
 
@@ -153,7 +155,7 @@ void connectToServer(int *argc, char *argv[])
     // thrid Parameter is define the protocol we use 0 for TCP
     if ((network_socket = socket(AF_INET, SOCK_STREAM, 0)) == -1)
     {
-        printf("[-] Socket Creation fail... \n");
+        printf("Error: Socket Creation fail... \n");
         exit(1);
     }
     // Becuase it is internet socket so it is AF_INET
@@ -168,11 +170,11 @@ void connectToServer(int *argc, char *argv[])
     // Check for error with the connection
     if (connection_status == -1)
     {
-        printf("[-]There was an error making a connection to the remote socket \n\n\n");
+        printf("Error: There was an error making a connection to the remote socket \n\n\n");
         exit(1);
     }
 
-    printf("[+]Server Connected ! \n");
+    printf("Server Connected ! \n");
 }
 
 // Function definitions
@@ -197,7 +199,7 @@ void selectMode(int commandId)
     switch (commandId)
     {
     case 1:
-        // hangman();
+        // game;
         break;
     case 2:
         // leaderboard();
@@ -225,16 +227,19 @@ void printChoice()
 
 void welcomeToGameScreen()
 {
-    puts("=======================================================================\n");
-    puts("Welcome to the online minesweeper gaming system.\n ");
+    system("clear");
+
+    puts("==========================================================================\n");
     puts("\n");
-    puts("=======================================================================\n \n");
+    puts("            Welcome to the online minesweeper gaming system.             \n ");
+    puts("\n");
+    puts("===========================================================================");
     puts("You are required to login with your registered username and password to play");
-    puts("========================================================================== ===");
+    puts("============================================================================");
     puts("\n");
-    puts("                                  Please login to the server.");
+    puts("                               Please login .                            ");
     puts("\n");
-    puts("==============================================================================");
+    puts("============================================================================");
     puts("");
 }
 
@@ -250,5 +255,13 @@ void quitGame()
     puts("                                 Was a good game wasn it?!!");
     puts("                                Hope to see you again, bye!");
     puts("==============================================================================");
+    exit(1);
+}
+void exitGame()
+{
+    if (network_socket)
+    {
+        close(network_socket);
+    }
     exit(1);
 }

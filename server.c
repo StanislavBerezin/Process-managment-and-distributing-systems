@@ -14,8 +14,8 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/wait.h> 
-#include <errno.h> 
+#include <sys/wait.h>
+#include <errno.h>
 
 #define AUTH_TXT "Authentication.txt"
 #define MAXBUFFERSIZE 512
@@ -51,21 +51,22 @@ void ServerSetUP(int *argc, char *argv[]);
 int CheckLoginDetails();
 void SendWelcomeMsg();
 
-struct User {
-	char * username;
-	char * password;
+struct User
+{
+    char *username;
+    char *password;
 } * users;
 
 // Main function
 
 int main(int argc, char *argv[])
 {
-
     signal(SIGINT, exitGame);
     readAuthTxt();
     ServerSetUP(&argc, argv);
 
-    while (loggedIn == 0){
+    while (loggedIn == 0)
+    {
         loggedIn = CheckLoginDetails();
     }
 
@@ -79,21 +80,20 @@ int main(int argc, char *argv[])
     return 1;
 }
 
-int CheckLoginDetails(){
-    
+int CheckLoginDetails()
+{
+
     ReceiveMsgFromClient();
 
-    char * username = strtok(buffer, " ");
-    char * password = strtok(NULL, "");
+    char *username = strtok(buffer, " ");
+    char *password = strtok(NULL, "");
 
     // Print the username list on the server side. it just only for development
     // need to delete it once we finished the project
     printf("Seperated String from buffer: username: %s, password: %s \n", username, password);
 
-    for (int i = 1; i < user_list_count; i++){
-
-        printf("Users[%d] - username = %s , password = %s \n\n", i ,users[i].username, users[i].password);
-
+    for (int i = 1; i < user_list_count; i++)
+    {
         // If username match one of the user on the list
         if (strcmp(users[i].username, username) == 0){
             // If password match 
@@ -114,25 +114,29 @@ void sendMsgToClient(char * msg){
     strcpy(buffer, msg);
     // Send msg to the network socket
     // You only need to change the value of buffer outside
-    if (send(client_socket, buffer, MAXBUFFERSIZE, 0) == -1) { 
+    if (send(client_socket, buffer, MAXBUFFERSIZE, 0) == -1)
+    {
         printf("[-] Error in sending data. \n");
         quitAndCloseSocket();
     }
 }
 
-void ReceiveMsgFromClient(){
+void ReceiveMsgFromClient()
+{
     // If we can not receive msg from the server
-    if( recv(client_socket, buffer, MAXBUFFERSIZE , 0) < 0 ){
+    if (recv(client_socket, buffer, MAXBUFFERSIZE, 0) < 0)
+    {
         printf("[-] Error in receiving data. \n");
         quitAndCloseSocket();
     } else {
-        printf("client : \t%s\n", buffer);
+        printf("client : \t %s \n", buffer);
     }
 }
 
 // Function definitions
 // Send Message back to Client
 void ServerSetUP(int *argc, char *argv[]){
+
     // Notes: It is just a testing function, will change later on
 
     // Save PORT NUM from terminal argc
@@ -151,23 +155,25 @@ void ServerSetUP(int *argc, char *argv[]){
     // Server Socket init
     server_socket = socket(AF_INET, SOCK_STREAM, 0);
     // Check Socket Connection
-    if (server_socket < 0){
+    if (server_socket < 0)
+    {
         printf("[-]Error in connection \n");
         quitAndCloseSocket();
     }
 
     printf("[+]Server Socket is created. \n");
 
-    memset(&server_address, '\0', sizeof(server_address) );
+    memset(&server_address, '\0', sizeof(server_address));
     server_address.sin_family = AF_INET;
     server_address.sin_port = htons(PORT_NUM);
     // basically will result to any IP address on the local machine
     server_address.sin_addr.s_addr = INADDR_ANY;
 
-    // bind the socket to our specified IP and port 
-    int ret = bind(server_socket, (struct sockaddr*) &server_address, sizeof(server_address));
+    // bind the socket to our specified IP and port
+    int ret = bind(server_socket, (struct sockaddr *)&server_address, sizeof(server_address));
 
-    if( ret <0 ){
+    if (ret < 0)
+    {
         printf("[-]Fail to bind to specified IP and port \n");
         quitAndCloseSocket();
     }
@@ -175,61 +181,70 @@ void ServerSetUP(int *argc, char *argv[]){
     printf("[+]Bind successfully to port %d \n ", PORT_NUM);
 
     printf("[+]Start listening to the client!!! \n");
-    // *** Important *** second argument is a backlog which is 
+    // *** Important *** second argument is a backlog which is
     // how many connection can be waiting for this particular socket at one point in time
-    if (listen(server_socket, 10) == 0){
+    if (listen(server_socket, 10) == 0)
+    {
         printf("[+]Listening.... \n");
-    } else {
+    }
+    else
+    {
         printf("[-]Error in binding. \n");
         quitAndCloseSocket();
     }
 
-    client_socket = accept(server_socket, (struct sockaddr *) &client_address, &addr_size );
+    client_socket = accept(server_socket, (struct sockaddr *)&client_address, &addr_size);
 
     // Might need to change something, always failed here
-    if (client_socket < 0){
+    if (client_socket < 0)
+    {
         printf("[-] Client Connection Failed ");
         quitAndCloseSocket();
     }
 
-    printf("[+]Connection accepted from %s:%d \n", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port) );
-    
+    printf("[+]Connection accepted from %s:%d \n", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port));
 }
+
 
 // Read the Authentication.Txt file, and save the data in users pointer for checking login validation
 void readAuthTxt(){
     FILE * file_pointer;
 
-	// Open a stream to the file
-	file_pointer = fopen(AUTH_TXT, "r");
+    // Open a stream to the file
+    file_pointer = fopen(AUTH_TXT, "r");
 
-	user_list_count = 1;
-	int ch = 0;
+    user_list_count = 1;
+    int ch = 0;
 
-	while((ch = fgetc(file_pointer)) != EOF){
-		if (ch == '\n') {
+    while ((ch = fgetc(file_pointer)) != EOF)
+    {
+        if (ch == '\n')
+        {
             user_list_count++;
+
         } 
 	}
 	rewind(file_pointer);
 
-	users = malloc(sizeof(struct User) * user_list_count);
+    users = malloc(sizeof(struct User) * user_list_count);
 
-	for (int i = 0; i < user_list_count; i++){
-		char username[64], password[64];
-		fscanf(file_pointer, "%s", username);
-		fscanf(file_pointer, "%s", password);
-		users[i].username = malloc(strlen(username) + 1);
-		users[i].password = malloc(strlen(password) + 1);
-		strcpy(users[i].username, username);
-		strcpy(users[i].password, password);
-	}
+    for (int i = 0; i < user_list_count; i++)
+    {
+        char username[64], password[64];
+        fscanf(file_pointer, "%s", username);
+        fscanf(file_pointer, "%s", password);
+        users[i].username = malloc(strlen(username) + 1);
+        users[i].password = malloc(strlen(password) + 1);
+        strcpy(users[i].username, username);
+        strcpy(users[i].password, password);
+    }
 
     if (user_list_count == 0){
         printf("[-]Can not read the AUTH_TXT file. Please check it... \n\n");
         exit(1);
     }
 	fclose(file_pointer);
+
 }
 
 // initialising game

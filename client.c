@@ -4,13 +4,15 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
-
+#include <stdbool.h>
 //Sokcet Header file
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#define NUM_TILES_X 9
+#define NUM_TILES_Y 9
 #define NAME_LENGTH 7
 #define PASS_LENGTH 6
 #define MAXBUFFERSIZE 512
@@ -19,99 +21,77 @@
 char username[NAME_LENGTH];
 char password[PASS_LENGTH];
 
-int minesRemained;
+int minesRemained = 10;
 
 // functions declarations
 void welcomeToGameScreen();
-
+// SERVER
 void connectToServer(int *argc, char *argv[]);
-void sendMsgToServer(char * msg);
+void sendMsgToServer(char *msg);
 void ReceiveMsgFromServer();
 
+// CLIENT ORINTATED
 int authenticate();
-void selectMode();
 void displayMenu();
-void quitGame();
+void selectMode();
+void gameInit();
 
+// exitFun
+void quitGame();
+void exitGame();
 void checkExit();
 
+// DISPLAY
+void printChoice();
 
 //Connection Variable
-int network_socket, flag;
+int network_socket,
+    flag;
 int login;
 int PORT_NUM;
 struct hostent *he;
 
+// CLIENT GAME VARIABLES
+bool is_selecting_mode = true;
+bool is_game_on = true;
 // Specify an address for the socket
 struct sockaddr_in server_address;
 
+// FOR TILES
+typedef struct
+{
+    bool reveal;
+    bool flag;
+    int around_mines;
+
+} tile;
+
+tile game[NUM_TILES_X][NUM_TILES_Y];
+char letters[NUM_TILES_Y] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'};
 // Variable for sending msg to the server
+
 char buffer[MAXBUFFERSIZE];
 
 // Main function
 int main(int argc, char *argv[])
 {
+    signal(SIGINT, exitGame);
     connectToServer(&argc, argv);
-
     welcomeToGameScreen();
 
-    while(login == 0){
-        // If the user information is wrong it will keep looping
-        // If it is correct, it will jump out of the loop
+    while (login == 0)
+    {
         login = authenticate();
     }
 
-    // Login Successfully, we can play the game now. do something you want here!
-    while (login == 1){
-        displayMenu();
-    }
+    displayMenu();
+
     return 1;
 }
 
-// need to send details to server from char username and password
-int authenticate()
+// Print Server response msg on the terminal
+void sendMsgToServer(char *msg)
 {
-    printf("Please insert your username: ");
-    scanf("%s", username);
-    printf("Please insert your password: ");
-    scanf("%s", password);
-
-    // Copy the message into buffer
-    sprintf(buffer, "%s %s", username, password);
-
-    sendMsgToServer(buffer);
-    ReceiveMsgFromServer();
-
-    // If the Server return "login success" msg to the buffer
-    if (strcmp(buffer, "login success") == 0){
-    //terminate the authenticate function
-    // strcmp compares, if == 0, then equal, if negative S1 < S2, if positive S1>S2
-
-        return 1;
-    }
-    else
-    {
-        return 0;
-    }
-}
-
-// When user connected to the server, they can insert :exit to kill the connection
-void checkExit()
-{
-    // If user enter :exit
-    if(strcmp(buffer, ":exit") == 0){
-        // Close the socket port
-        close(network_socket);
-        printf("[-] Disconnected from server. \n");
-        // End Program
-        exit(1);
-    }
-}
-
-
-// Print Server response msg on the terminal 
-void sendMsgToServer(char * msg){
-
     // Copy the msg to the buffer in order to send it to server
     strcpy(buffer, msg);
     checkExit();
@@ -128,30 +108,180 @@ void sendMsgToServer(char * msg){
 void ReceiveMsgFromServer()
 {
     // If we can not receive msg from the server
-    if(recv(network_socket, buffer, MAXBUFFERSIZE , 0) < 0 ){
+    if (recv(network_socket, buffer, MAXBUFFERSIZE, 0) < 0)
+    {
         printf("[-] Error in receiving data. \n");
         close(network_socket);
         exit(1);
-    } else {
+    }
+    else
+    {
         // Return Server Response on Screen
-        printf("Server : \t%s\n", buffer);
+        printf("Server : %s\n", buffer);
+    }
+}
+
+// Function definitions
+void displayMenu(void)
+{
+
+    char command[32];
+
+    puts("Please enter a selection:\n");
+    puts("<1> Play Game");
+    puts("<2> Show Leaderboard");
+    puts("<3> Quit\n");
+    printf("Enter an option (1-3): ");
+    scanf("%s", command);
+    command[1] = '\0';
+
+    selectMode(atoi(command));
+}
+
+void selectMode(int commandId)
+{
+    while (is_selecting_mode)
+    {
+        switch (commandId)
+        {
+        case 1:
+            gameInit();
+            break;
+        case 2:
+            // leaderboard();
+            break;
+        case 3:
+            quitGame();
+            break;
+        default:
+            displayMenu();
+            break;
+        }
+    }
+}
+
+// THIS is where the game begins, we send to server 1-game-mode, to tell that the game
+// has started, there is no functionality developed yet, but it already notifies it
+
+void gameInit()
+{
+    char *notifyServer = "1-game-mode";
+    sprintf(buffer, "%s", notifyServer);
+    sendMsgToServer(buffer);
+    system("clear");
+
+    while (is_game_on)
+    {
+        char input[512];
+        printf("Remaining mines: %d", minesRemained);
+        printf("\n");
+        printf("\n");
+
+        for (int i = 0; i <= NUM_TILES_X; i++)
+        {
+            printf("\t%d", i);
+        }
+        printf("\n");
+        for (int i = 0; i <= NUM_TILES_X; i++)
+        {
+            printf("\t-");
+        }
+        printf("\n");
+
+        for (int i = 0; i < NUM_TILES_Y; i++)
+        {
+            //write the X coordinate to the start of the line
+            printf("%c |\t", letters[i]);
+
+            printf("\n\n");
+        }
+        printf("\n");
+        printChoice();
+        printf("\n");
+        printf("Option (R, P, Q): ");
+        scanf("%s", input);
+    }
+}
+
+// COMPONENTS FOR DISPAY
+void printChoice()
+{
+    printf("\n");
+    printf("Choose an option: \n");
+    printf("\n");
+    printf("<R> Reveal tile \n");
+    printf("<P> Place flag \n");
+    printf("<Q> Quit game \n");
+    printf("\n");
+}
+
+void welcomeToGameScreen()
+{
+    system("clear");
+
+    puts("==========================================================================\n");
+    puts("\n");
+    puts("            Welcome to the online minesweeper gaming system.             \n ");
+    puts("\n");
+    puts("===========================================================================");
+    puts("You are required to login with your registered username and password to play");
+    puts("============================================================================");
+    puts("\n");
+    puts("                               Please login .                            ");
+    puts("\n");
+    puts("============================================================================");
+    puts("");
+}
+
+void remainingMines()
+{
+}
+
+void quitGame()
+{
+    close(network_socket);
+    puts("\n============================================================================");
+    puts("                                 Was a good game wasn it?!!");
+    puts("                                Hope to see you again, bye!");
+    puts("==============================================================================");
+    exit(1);
+}
+void exitGame()
+{
+    if (network_socket)
+    {
+        close(network_socket);
+    }
+    exit(1);
+}
+
+void checkExit()
+{
+    // If user enter :exit
+    if (strcmp(buffer, ":exit") == 0)
+    {
+        // Close the socket port
+        close(network_socket);
+        printf("[-] Disconnected from server. \n");
+        // End Program
+        exit(1);
     }
 }
 
 // connect to server
 void connectToServer(int *argc, char *argv[])
 {
+
     // Need to improve this one
     if ((he = gethostbyname(argv[1])) == NULL)
     { /* get the host info */
-        printf("[-]get host by name\n");
+        printf("Error: get host by name\n");
         exit(1);
     }
 
-    // Command line argcs must be three for configure the network connection
     if (*argc != 3)
     {
-        printf("[-]usage: ./client hostname port\n");
+        printf("Error: usage: ./client hostname port\n");
         exit(1);
     }
 
@@ -161,10 +291,9 @@ void connectToServer(int *argc, char *argv[])
     // First Parameter is the domain of the socket -> Becuase it is internet socket so it is AF_INET
     // Second Parameter SOCK_STEAM = Using TCP
     // thrid Parameter is define the protocol we use 0 for TCP
-
-    if ( (network_socket = socket(AF_INET, SOCK_STREAM, 0)) == -1 ) {
-        close(network_socket);
-        printf("[-] Socket Creation fail... \n");
+    if ((network_socket = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+    {
+        printf("Error: Socket Creation fail... \n");
         exit(1);
     }
     // Becuase it is internet socket so it is AF_INET
@@ -179,87 +308,39 @@ void connectToServer(int *argc, char *argv[])
     // Check for error with the connection
     if (connection_status == -1)
     {
-        printf("[-]There was an error making a connection to the remote socket \n\n\n");
-        close(network_socket);
+        printf("Error: There was an error making a connection to the remote socket \n\n\n");
         exit(1);
     }
 
-    printf("[+]Server Connected ! \n");
+    printf("Server Connected ! \n");
 }
 
-// Function definitions
-void displayMenu(void)
+// need to send details to server from char username and password
+int authenticate()
 {
+    printf("Please insert your username: ");
+    scanf("%s", username);
+    printf("Please insert your password: ");
+    scanf("%s", password);
 
-    char command[32];
+    // Copy the message into buffer
+    sprintf(buffer, "%s %s", username, password);
 
-	puts("Please enter a selection:\n");
-	puts("<1> Play Minesweeper");
-	puts("<2> Show Leaderboard");
-	puts("<3> Quit\n");
-	printf("Enter an option (1-3): ");
-	scanf("%s", command);
-	command[1] = '\0';
-    selectMode(atoi(command));
-}
+    sendMsgToServer(buffer);
+    system("clear");
+    ReceiveMsgFromServer();
+    puts("\n");
 
-void selectMode(int commandId)
-{
-    switch (commandId)
+    // If the Server return "login success" msg to the buffer
+    if (strcmp(buffer, "Welcome to minesweeper") == 0)
     {
-    case 1:
-        // hangman();
-        break;
-    case 2:
-        // leaderboard();
-        break;
-    case 3:
-        quitGame();
-        break;
-    default:
-        displayMenu();
-        break;
+        //terminate the authenticate function
+        // strcmp compares, if == 0, then equal, if negative S1 < S2, if positive S1>S2
+
+        return 1;
     }
-}
-
-// COMPONENTS FOR DISPAY
-void printChoice()
-{
-    printf("\n");
-    printf("Choose an aption: \n");
-    printf("\n");
-    printf("<R> Reveal tile \n");
-    printf("<P> Place flag \n");
-    printf("<Q> Quit game \n");
-    printf("\n");
-}
-
-void welcomeToGameScreen()
-{
-    puts("=======================================================================\n");
-    puts("Welcome to the online minesweeper gaming system.\n ");
-    puts("\n");
-    puts("=======================================================================\n \n");
-    puts("You are required to login with your registered username and password to play");
-    puts("========================================================================== ===");
-    puts("\n");
-    puts("                                  Please login to the server.");
-    puts("\n");
-    puts("==============================================================================");
-    puts("");
-}
-
-void remainingMines()
-{
-    printf("Remaining mines: %d\n", minesRemained);
-}
-
-void quitGame()
-{
-    close(network_socket);
-    puts("\n============================================================================");
-    puts("                                 Was a good game wasn it?!!");
-    puts("                                Hope to see you again, bye!");
-    puts("==============================================================================");
-    exit(1);
+    else
+    {
+        return 0;
+    }
 }

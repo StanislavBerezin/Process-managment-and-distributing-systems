@@ -121,21 +121,58 @@ void ReceiveMsgFromServer()
     }
 }
 
-// Function definitions
-void displayMenu(void)
+// THIS is where the game begins, we send to server 1-game-mode, to tell that the game
+// has started, there is no functionality developed yet, but it already notifies it
+
+void gameInit()
 {
+    char *notifyServer = "1-game-mode";
+    sprintf(buffer, "%s", notifyServer);
+    sendMsgToServer(buffer);
+    system("clear");
 
-    char command[32];
+    while (is_game_on)
+    {
+        char input[512];
+        printf("Remaining mines: %d", minesRemained);
+        printf("\n");
+        printf("\n");
+        printf("    ");
+        for (int i = 0; i <= NUM_TILES_X; i++)
+        {
+            printf("%d ", i);
+        }
+        printf("\n");
+        printf("    ");
+        for (int i = 0; i <= NUM_TILES_X; i++)
+        {
+            printf("- ");
+        }
+        printf("\n");
 
-    puts("Please enter a selection:\n");
-    puts("<1> Play Game");
-    puts("<2> Show Leaderboard");
-    puts("<3> Quit\n");
-    printf("Enter an option (1-3): ");
-    scanf("%s", command);
-    command[1] = '\0';
+        for (int is = 0; is < NUM_TILES_Y; is++)
+        {
+            //write the X coordinate to the start of the line
+            printf("%c |\t", letters[is]);
 
-    selectMode(atoi(command));
+            printf("\n");
+        }
+        printf("\n");
+        printChoice();
+        printf("\n");
+        printf("Option (R, P, Q): ");
+
+        scanf("%s", input);
+
+        sprintf(buffer, "%s", input);
+
+        sendMsgToServer(buffer);
+
+        if (strcmp(input, "R") == 1)
+        {
+            printf("num 2");
+        }
+    }
 }
 
 void selectMode(int commandId)
@@ -159,50 +196,6 @@ void selectMode(int commandId)
         }
     }
 }
-
-// THIS is where the game begins, we send to server 1-game-mode, to tell that the game
-// has started, there is no functionality developed yet, but it already notifies it
-
-void gameInit()
-{
-    char *notifyServer = "1-game-mode";
-    sprintf(buffer, "%s", notifyServer);
-    sendMsgToServer(buffer);
-    system("clear");
-
-    while (is_game_on)
-    {
-        char input[512];
-        printf("Remaining mines: %d", minesRemained);
-        printf("\n");
-        printf("\n");
-
-        for (int i = 0; i <= NUM_TILES_X; i++)
-        {
-            printf("\t%d", i);
-        }
-        printf("\n");
-        for (int i = 0; i <= NUM_TILES_X; i++)
-        {
-            printf("\t-");
-        }
-        printf("\n");
-
-        for (int i = 0; i < NUM_TILES_Y; i++)
-        {
-            //write the X coordinate to the start of the line
-            printf("%c |\t", letters[i]);
-
-            printf("\n\n");
-        }
-        printf("\n");
-        printChoice();
-        printf("\n");
-        printf("Option (R, P, Q): ");
-        scanf("%s", input);
-    }
-}
-
 // COMPONENTS FOR DISPAY
 void printChoice()
 {
@@ -233,10 +226,22 @@ void welcomeToGameScreen()
     puts("");
 }
 
-void remainingMines()
+// Function definitions
+void displayMenu(void)
 {
-}
 
+    char command[32];
+
+    puts("Please enter a selection:\n");
+    puts("<1> Play Game");
+    puts("<2> Show Leaderboard");
+    puts("<3> Quit\n");
+    printf("Enter an option (1-3): ");
+    scanf("%s", command);
+    command[1] = '\0';
+
+    selectMode(atoi(command));
+}
 void quitGame()
 {
     close(network_socket);
@@ -250,6 +255,9 @@ void exitGame()
 {
     if (network_socket)
     {
+        char *bye = "exit";
+        sprintf(buffer, "%s", bye);
+        sendMsgToServer(buffer);
         close(network_socket);
     }
     exit(1);
@@ -341,6 +349,7 @@ int authenticate()
     }
     else
     {
+
         return 0;
     }
 }

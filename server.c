@@ -98,10 +98,10 @@ void buildTheApp(int argc, char *argv[])
 {
     setPort(argc, argv);
     serverSetUP();
-
+    awaitNewUsers();
     while (game_on)
     {
-        awaitNewUsers();
+
         ReceiveMsgFromClient();
     }
 }
@@ -211,8 +211,8 @@ void awaitNewUsers()
     else
     {
         printf("Connection accepted from %s:%d \n", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port));
-        CheckLoginDetails();
         successAuth = false;
+        CheckLoginDetails();
     }
 }
 

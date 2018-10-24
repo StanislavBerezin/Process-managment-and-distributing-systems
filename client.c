@@ -36,6 +36,12 @@ void displayMenu();
 void selectMode();
 void gameInit();
 
+// Game Function
+void displayGameBroad();
+
+//Client Game Function
+void receiveGameBroad();
+
 // exitFun
 void quitGame();
 void exitGame();
@@ -51,22 +57,13 @@ int login;
 int PORT_NUM;
 struct hostent *he;
 
+
 // CLIENT GAME VARIABLES
 bool is_selecting_mode = true;
 bool is_game_on = true;
 // Specify an address for the socket
 struct sockaddr_in server_address;
 
-// FOR TILES
-typedef struct
-{
-    bool reveal;
-    bool flag;
-    int around_mines;
-
-} tile;
-
-tile game[NUM_TILES_X][NUM_TILES_Y];
 char letters[NUM_TILES_Y] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'};
 // Variable for sending msg to the server
 
@@ -84,7 +81,17 @@ int main(int argc, char *argv[])
         login = authenticate();
     }
 
-    displayMenu();
+    while(is_game_on){
+        receiveGameBroad();
+        if (strcmp(buffer, "Selection option (1-3) :") == 0){
+            scanf("%s",buffer);
+            sendMsgToServer(buffer);
+        }
+
+        // if (strcmp(buffer, "insertCoordinate" == 0)){
+
+        // }
+    }
 
     return 1;
 }
@@ -351,5 +358,23 @@ int authenticate()
     {
 
         return 0;
+    }
+}
+
+
+// ************************* Game Function ********************************
+
+void receiveGameBroad(){
+    // If we can not receive msg from the server
+    if (recv(network_socket, buffer, MAXBUFFERSIZE, 0) < 0)
+    {
+        printf("[-] Error in receiving data. \n");
+        close(network_socket);
+        exit(1);
+    }
+    else
+    {
+        // Return Server Response on Screen
+        printf("%s \n", buffer);
     }
 }

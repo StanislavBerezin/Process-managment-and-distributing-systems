@@ -7,17 +7,20 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-// #include "minesweeper.h"
+#include "minesweeper.h"
 #include <pthread.h>
 #include <signal.h>
 #include <dirent.h>
 #include <arpa/inet.h>
 
+#define NUMOFTHREADS 10
+#define BUFFERSIZE 1024
+
 // Server Related Functions
 int serverInit(int portNumber);
 void serverFunction(int newsockfd);
 int authenticate(char *password, char *username, int iSelf);
-void authenticateRequest(int iSelf, char query, char buffer, char response);
+void authenticateRequest(int iSelf);
 void assignThread();
 
 //Error handling and Interrupts
@@ -27,8 +30,9 @@ void interruptCallled();
 
 /**Game Related Functions**/
 char *gameStart();
-
 char *gameOptions(char rop, char tileA, char tile1, int iSelf);
+int compare_ints(const void *p, const void *q);
+char *leaderBoard();
 
 /**LeaderBoard Releated Functions**/
 typedef struct
@@ -44,34 +48,37 @@ typedef struct
     int time;
 } GameEntry;
 
-int sockfd, newsockfd;
-socklen_t clilen;
-struct sockaddr_in cli_addr;
-
-//to exit
 struct sigaction instance;
-
 UserRecord userRecords[10];
 GameEntry gameEntries[11];
 
-int anyRecords = 0;
-int anyGamesPlayed = 0;
-int iUserRecords = 0;
-int compare_ints(const void *p, const void *q);
-char *leaderBoard();
-
-/**Thread Related Functions**/
-#define NUMOFTHREADS 2
-int buffer[NUMOFTHREADS];
-int pointer = -1;
-
+int sockfd, newsockfd;
+socklen_t clilen;
 pthread_cond_t cv;
 pthread_mutex_t lock;
+struct sockaddr_in cli_addr;
+
+//to exit
 
 void threadsInit();
 void *threadWorker(void *args);
 
 /**SIGINT Exit Related Functions*/
+
+// integer for communication between client and server
+int communicator;
+
+char bufferREQUEST[BUFFERSIZE];
+char query[1];
+char response[BUFFERSIZE];
+
+int anyRecords = 0;
+int anyGamesPlayed = 0;
+int iUserRecords = 0;
+
+// Threading
+int buffer[NUMOFTHREADS];
+int pointer = -1;
 
 //Variable to indicate CTRL-C pressed.
 static volatile int keepRunning = 1;
@@ -155,11 +162,6 @@ int serverInit(int portNumber)
 
 void serverFunction(int newsockfd)
 {
-    int communicator;
-
-    char buffer[1024];
-    char query[1];
-    char response[1024];
 
     //Variable to track the index of player in UserRecords array for LeaderBoard
     int iSelf;
@@ -169,43 +171,27 @@ void serverFunction(int newsockfd)
 
     while (keepRunning)
     {
-        bzero(buffer, 1024);
+        bzero(bufferREQUEST, 1024);
         //Read the query
-        communicator = read(newsockfd, buffer, 255);
+        communicator = read(newsockfd, bufferREQUEST, 255);
         if (communicator < 0)
             error("ERROR reading from socket", newsockfd);
         //printf("Query: %s\n", buffer);
         bzero(query, 1);
         //If query is empty, probably client just shutdown.
-        if (strlen(buffer) == 0)
+        if (strlen(bufferREQUEST) == 0)
+        {
+            puts("User has disconnected");
             break;
+        }
+
         bzero(response, 1024);
-        switch (buffer[0])
+
+        switch (bufferREQUEST[0])
         {
         //'A' for authentication
         case 'A':
-            strcat(query, strtok(buffer, ","));
-
-            //If more than ten players are connected to the same instance, clear the records for leaderboard
-            if (iSelf > 9)
-            {
-                bzero(userRecords, sizeof(UserRecord) * 10);
-                bzero(gameEntries, sizeof(GameEntry) * 11);
-                iSelf = 0;
-                anyRecords--;
-            }
-
-            //Check credentials
-            if (authenticate(strtok(NULL, ","), strtok(NULL, ","), iSelf))
-            {
-                printf("%s has connected", userRecords->username);
-                strcat(response, "A,1\n");
-            }
-            else
-            {
-                printf("User attempted to connect but failed, disconnecting client...");
-                strcat(response, "A,0\n");
-            }
+            authenticateRequest(iSelf);
             break;
 
         //'L' for leaderboard
@@ -219,7 +205,7 @@ void serverFunction(int newsockfd)
             break;
         //'G' for game option received
         case 'G':
-            strcat(response, gameOptions(buffer[2], buffer[3], buffer[4], iSelf));
+            strcat(response, gameOptions(bufferREQUEST[2], bufferREQUEST[3], bufferREQUEST[4], iSelf));
             break;
         }
         // TO DELETE
@@ -233,6 +219,32 @@ void serverFunction(int newsockfd)
     }
 
     close(newsockfd);
+}
+
+void authenticateRequest(int iSelf)
+{
+    strcat(query, strtok(bufferREQUEST, ","));
+
+    //If more than ten players are connected to the same instance, clear the records for leaderboard
+    if (iSelf > 9)
+    {
+        bzero(userRecords, sizeof(UserRecord) * 10);
+        bzero(gameEntries, sizeof(GameEntry) * 11);
+        iSelf = 0;
+        anyRecords--;
+    }
+
+    //Check credentials
+    if (authenticate(strtok(NULL, ","), strtok(NULL, ","), iSelf))
+    {
+        printf("%s has connected", userRecords->username);
+        strcat(response, "A,1\n");
+    }
+    else
+    {
+        printf("User attempted to connect but failed, disconnecting client...");
+        strcat(response, "A,0\n");
+    }
 }
 
 int authenticate(char *password, char *username, int iSelf)

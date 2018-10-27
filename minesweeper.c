@@ -139,6 +139,19 @@ int cal_adjacent_mines(int x, int y){
 
 void reveal_adj(int x, int y){
 
+	if(x != NUM_TILES_X-1 && y != NUM_TILES_Y-1) game.tiles[x+1][y+1].revealed = true;
+	if(x != NUM_TILES_X-1) 					 game.tiles[x+1][y].revealed = true;
+	if(x != NUM_TILES_X-1 && y != 0) 			 game.tiles[x+1][y-1].revealed = true;
+	if(y != NUM_TILES_Y-1) 					 game.tiles[x][y+1].revealed = true;
+	if(y != 0)			 					 game.tiles[x][y-1].revealed = true;
+	if(x != 0) 			 					 game.tiles[x-1][y].revealed = true;
+	if(x != 0 && y != 0) 					 game.tiles[x-1][y-1].revealed = true;
+	if(x != 0 && y != NUM_TILES_Y-1)			 game.tiles[x-1][y+1].revealed = true;
+
+}
+
+void reveal_ZeroAdj(int x, int y){
+
     int nearByMines = 0;
     int i = 0;
 
@@ -146,7 +159,7 @@ void reveal_adj(int x, int y){
     while( y - i != -1 && nearByMines == 0){
         nearByMines = cal_adjacent_mines(x, y - i);
         if ( nearByMines == 0 ){
-            game.tiles[x][y - i].revealed = true;
+            reveal_adj(x, y -i);
         }
         i++;
     }
@@ -156,8 +169,10 @@ void reveal_adj(int x, int y){
     nearByMines = 0;
     while( y + i != NUM_TILES_Y && nearByMines == 0){
         nearByMines = cal_adjacent_mines(x, y + i);
+        // game.tiles[x][y + i].revealed = true;
+
         if ( nearByMines == 0 ){
-            game.tiles[x][y + i].revealed = true;
+            reveal_adj(x, y +i );
         }
         i++;
     }
@@ -168,7 +183,7 @@ void reveal_adj(int x, int y){
     while( x - i != -1 && nearByMines == 0){
         nearByMines = cal_adjacent_mines(x - i, y);
         if ( nearByMines == 0 ){
-            game.tiles[x - i][y].revealed = true;
+            reveal_adj(x - i, y);
         }
         i++;
     }
@@ -178,8 +193,9 @@ void reveal_adj(int x, int y){
     nearByMines = 0;
     while( x + i != NUM_TILES_X && nearByMines == 0){
         nearByMines = cal_adjacent_mines(x + i, y);
+        // game.tiles[x + i][y].revealed = true;
         if ( nearByMines == 0 ){
-            game.tiles[x + i][y].revealed = true;
+            reveal_adj(x + i, y);
         }
         i++;
     }
@@ -189,8 +205,9 @@ void reveal_adj(int x, int y){
     nearByMines = 0;
     while( y + i != NUM_TILES_Y && x - i != -1 && nearByMines == 0){
         nearByMines = cal_adjacent_mines(x - i, y + i);
+        // game.tiles[x - i][y + i].revealed = true;
         if ( nearByMines == 0 ){
-            game.tiles[x - i][y + i].revealed = true;
+            reveal_adj(x - i, y + i);
         }
         i++;
     }
@@ -200,8 +217,9 @@ void reveal_adj(int x, int y){
     nearByMines = 0;
     while( y + i != NUM_TILES_Y && x + i != NUM_TILES_X && nearByMines == 0){
         nearByMines = cal_adjacent_mines(x + i, y + i);
+        // game.tiles[x + i][y + i].revealed = true;
         if ( nearByMines == 0 ){
-            game.tiles[x + i][y + i].revealed = true;
+            reveal_adj(x + i, y + i );
         }
         i++;
     }
@@ -212,7 +230,7 @@ void reveal_adj(int x, int y){
     while( y - i != -1 && x - i != -1 && nearByMines == 0){
         nearByMines = cal_adjacent_mines(x - i, y - i);
         if ( nearByMines == 0 ){
-            game.tiles[x - i][y - i].revealed = true;
+            reveal_adj(x - i, y - i);
         }
         i++;
     }
@@ -222,8 +240,9 @@ void reveal_adj(int x, int y){
     nearByMines = 0;
     while( y - i != -1 && x + i != NUM_TILES_X && nearByMines == 0){
         nearByMines = cal_adjacent_mines(x + i, y - i);
+        // game.tiles[x + i][y - i].revealed = true;
         if ( nearByMines == 0 ){
-            game.tiles[x + i][y - i].revealed = true;
+            reveal_adj(x + i, y -i);
         }
         i++;
     }
@@ -273,7 +292,7 @@ void revealTile(char tileA, char tile1)
 
 	// if this coordinate is zero, and it never be revealed before
 	if(game.tiles[row][col].adj_mines == 0 && game.tiles[row][col].revealed == false){
-		reveal_adj(row,col);
+		reveal_ZeroAdj(row,col);
 	}
     game.tiles[row][col].revealed = true;
 	print_game();

@@ -1,702 +1,428 @@
-
-
-#define _GNU_SOURCE
-// imports
+/* A simple server in the internet domain using TCP
+   The port number is passed as an argument */
 #include <stdio.h>
-#include <pthread.h>
-#include <time.h>
 #include <stdlib.h>
-#include <signal.h>
 #include <string.h>
 #include <unistd.h>
-#include <arpa/inet.h>
-#include <stdbool.h>
-
-//Sokcet Header file
-#include <netinet/in.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/wait.h>
-#include <errno.h>
+#include <netinet/in.h>
+#include "minesweeper.h"
+#include <pthread.h>
+#include <signal.h>
+#include <dirent.h>
+#include <arpa/inet.h>
 
-#define AUTH_TXT "Authentication.txt"
-#define MAXBUFFERSIZE 512
-#define MAX_PLAYERS 10
-#define RANDOM_NUMBER_SEED 42
+// Server Related Functions
+int serverInit(int portNumber);
+void serverFunction(int newsockfd);
+int authenticate(char *password, char *username, int iSelf);
+void authenticateRequest(int iSelf, char query, char buffer, char response);
+void assignThread();
 
-#define NUM_MINES 10
-#define NUM_TILES_X 9
-#define NUM_TILES_Y 9
+//Error handling and Interrupts
+void error(const char *msg, int newsockfd);
+void fatalerror(const char *msg);
+void interruptCallled();
 
-// VARIABLES FOR BOOTING UP THE GAME
-int hour, minute, second;
-bool game_on = true;
-bool successAuth = false;
+/**Game Related Functions**/
+char *gameStart();
 
-pthread_mutex_t write_leader_mutex, read_leader_mutex;
+char *gameOptions(char rop, char tileA, char tile1, int iSelf);
 
-// *************  Connection Variable ***********************
-int PORT_NUM = 12345;
-int client_socket, server_socket;
-int user_list_count; //Counter for the AuthTxt file
-struct sockaddr_in client_address, server_address;
-int loggedIn;
-
-// Login Details
-struct User
+/**LeaderBoard Releated Functions**/
+typedef struct
 {
     char *username;
-    char *password;
-} * users;
+    int gamesPlayed;
+    int gamesWon;
+} UserRecord;
 
-// **********************************************************
+typedef struct
+{
+    int indexUserRecord;
+    int time;
+} GameEntry;
 
+int sockfd, newsockfd;
+socklen_t clilen;
+struct sockaddr_in cli_addr;
 
-// ******************  Game  Variable ***********************
-typedef struct {
-    int adjacent_mines;
-    bool revealed;
-    bool is_mine;
-} Tile;
+//to exit
+struct sigaction instance;
 
-typedef struct {
-    // additional fields
-    Tile tiles[NUM_TILES_X] [NUM_TILES_Y];
-} GameState;
+UserRecord userRecords[10];
+GameEntry gameEntries[11];
 
-GameState playerState;
+int anyRecords = 0;
+int anyGamesPlayed = 0;
+int iUserRecords = 0;
+int compare_ints(const void *p, const void *q);
+char *leaderBoard();
 
-int remainMines, user_insertX, user_insertY;
-char Column_letter;
+/**Thread Related Functions**/
+#define NUMOFTHREADS 2
+int buffer[NUMOFTHREADS];
+int pointer = -1;
 
-// **********************************************************
+pthread_cond_t cv;
+pthread_mutex_t lock;
 
-//Process
-pid_t childpid;
+void threadsInit();
+void *threadWorker(void *args);
 
-// Variable
-char buffer[MAXBUFFERSIZE];
+/**SIGINT Exit Related Functions*/
 
-// functions declarations
-// BOOTING UP THE GAME
-void prepareApp();
-void initialiseTimer();
-void read_AUTH_File();
-void exitProgram();
-void createMutexes();
+//Variable to indicate CTRL-C pressed.
+static volatile int keepRunning = 1;
 
-// Connection Function
-void buildTheApp(int argc, char *argv[]);
-void setPort(int argc, char *argv[]);
-void serverSetUP();
-void awaitNewUsers();
-void ReceiveMsgFromClient();
-void sendMsgToClient(char *msg);
-void CheckLoginDetails();
+void sigintHandler()
+{
+    keepRunning = 0;
+}
 
-// Game function
-
-// Setting up the Game 
-void gameSetUp();
-void place_mines();
-int  cal_adjacent_mines();
-void cal_adjacent_mines_for_all_tiles();
-
-// Send game status to Client
-void waitClientSelectMenu();
-void SendGameBroadToClient();
-void SendGoalBroadToClient();
-
-//Check the game status
-void showAllMines();                          // Reveal all the mines and print it to terminal
-int tile_contains_mine(int x, int y);         // Check the position, is it contain mine
-
-// Selection / Movement Set
-void selectOption();
-void revealTile(int x, int y);
-void PlaceFlag(int x, int y);
-void insertCoordinate();
-
-void revealSurroundingZeroTiles(int x, int y);
-
-
-// EXITING THE GAME
-void exitProgram();
-
-
-// Main function
-
+/**Main Function*/
 int main(int argc, char *argv[])
 {
     system("clear");
-    prepareApp();
-    buildTheApp(argc, argv);
-    // After here the user has already login successfully 
-    gameSetUp();
+    interruptCallled();
+    //Reading the command line args
+    sockfd = serverInit(argc < 2 ? 12345 : atoi(argv[1]));
 
-    waitClientSelectMenu();
+    //Start all the threads
+    threadsInit();
+    assignThread();
 
-    SendGameBroadToClient();
-    SendGoalBroadToClient();
-    // displayTheGoalBroad();
-    // while (game_on)
-    // {
-    // }
+    system("clear");
+    printf("Sutting Down Server");
+    puts("\n");
 
-    return 1;
+    close(sockfd);
+    return 0;
 }
 
-void prepareApp()
+void interruptCallled()
 {
-    srand(RANDOM_NUMBER_SEED);
-    signal(SIGINT, exitProgram);
-    // time works, but disabled for further development
-    // initialiseTimer();
-    createMutexes();
-    read_AUTH_File();
+    instance.sa_handler = sigintHandler;
+    instance.sa_flags = 0;
+    sigemptyset(&instance.sa_mask);
+    sigaction(SIGINT, &instance, NULL);
 }
 
-void buildTheApp(int argc, char *argv[])
+void assignThread()
 {
-    setPort(argc, argv);
-    // Build up the server program, and listening to the port, waiting for client connection.
-    serverSetUP();
-    // Waiting for user to send the login information back
-    awaitNewUsers();
-}
-
-
-void ReceiveMsgFromClient()
-{
-    // If we can not receive msg from the server
-    if (recv(client_socket, buffer, MAXBUFFERSIZE, 0) < 0)
+    while (keepRunning)
     {
-        printf("[-] Error in receiving data. \n");
-    } else
-    {
-        printf("From client : %s \n", buffer);
-    }
+        clilen = sizeof(cli_addr);
+        printf("Server: got connection from %s\n", inet_ntoa(cli_addr.sin_addr));
+        newsockfd = accept(sockfd,
+                           (struct sockaddr *)&cli_addr,
+                           &clilen);
 
-    // We need to turn off the game when client send a exit packet
-    // That is why last time it keep saying From client %s
-    if (strcmp(buffer, "exit") == 0 ){
-        printf(" Client Terminated the game... \n");
-        game_on = false;
-    }
-}
-// Function for sending msg to the client
-void sendMsgToClient(char *msg)
-{
-    strcpy(buffer, msg);
-    // Send msg to the network socket
-    // You only need to change the value of buffer outside
-    if (send(client_socket, buffer, MAXBUFFERSIZE, 0) == -1)
-    {
-        printf("[-] Error in sending data. \n");
+        //Put new connection in the buffe
+        buffer[++pointer] = newsockfd;
+        //Signal to threads that thers is a new connection available.
+        pthread_cond_signal(&cv);
+
+        //While all the threads are consumed, new connection is put on wait.
+        pthread_mutex_lock(&lock);
+        while (pointer >= NUMOFTHREADS)
+            pthread_cond_wait(&cv, &lock);
+        pthread_mutex_unlock(&lock);
     }
 }
 
-// Function definitions
-// Send Message back to Client
-void serverSetUP()
+/**Server Related Functions*/
+int serverInit(int portNumber)
 {
+    int sockfd;
+    struct sockaddr_in serv_addr;
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0)
+        fatalerror("ERROR opening socket");
+    bzero((char *)&serv_addr, sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = INADDR_ANY;
+    serv_addr.sin_port = htons(portNumber);
+    if (bind(sockfd, (struct sockaddr *)&serv_addr,
+             sizeof(serv_addr)) < 0)
+        fatalerror("ERROR on binding");
+    puts("Waiting for players to join...");
+    listen(sockfd, 5);
 
-    // Server Socket init
-    server_socket = socket(AF_INET, SOCK_STREAM, 0);
-    // Check Socket Connection
-    if (server_socket < 0)
-    {
-        printf("Error: Server Socket can not be made \n");
-        exit(1);
-    }
-
-    // Disable this code for temporary
-    // memset(&server_address, '\0', sizeof(server_address));
-
-    server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(PORT_NUM);
-    // basically will result to any IP address on the local machine
-    server_address.sin_addr.s_addr = INADDR_ANY;
-
-    // bind the socket to our specified IP and port
-    int ret = bind(server_socket, (struct sockaddr *)&server_address, sizeof(server_address));
-
-    if (ret < 0)
-    {
-        printf("Error: Failed to bind specified IP/port \n");
-        exit(1);
-    }
-    // *** Important *** second argument is a backlog which is
-    // how many connection can be waiting for this particular socket at one point in time
-    if (listen(server_socket, MAX_PLAYERS) < 0)
-    {
-        printf("Waiting for players on %d.... \n", PORT_NUM);
-    }
-    puts("Waiting for players...");
+    return sockfd;
 }
 
-void awaitNewUsers()
+void serverFunction(int newsockfd)
 {
+    int communicator;
 
-    // Notes: It is just a testing function, will change later on
-    socklen_t addr_size;
-    client_socket = accept(server_socket, (struct sockaddr *)&client_address, &addr_size);
+    char buffer[1024];
+    char query[1];
+    char response[1024];
 
-    // Might need to change something, always failed here
-    if (client_socket < 0)
+    //Variable to track the index of player in UserRecords array for LeaderBoard
+    int iSelf;
+
+    if (newsockfd < 0)
+        error("ERROR on accept", -1);
+
+    while (keepRunning)
     {
-        printf("Error: Client Connection Failed ");
-        exit(1);
-    }
-    else
-    {
-        printf("Connection accepted from %s:%d \n", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port));
-        successAuth = false;
-        CheckLoginDetails();
-    }
-}
-
-void CheckLoginDetails()
-{
-
-    while (!successAuth)
-    {
-        ReceiveMsgFromClient();
-
-        char *username = strtok(buffer, " ");
-        char *password = strtok(NULL, "");
-
-        for (int i = 1; i < user_list_count; i++)
+        bzero(buffer, 1024);
+        //Read the query
+        communicator = read(newsockfd, buffer, 255);
+        if (communicator < 0)
+            error("ERROR reading from socket", newsockfd);
+        //printf("Query: %s\n", buffer);
+        bzero(query, 1);
+        //If query is empty, probably client just shutdown.
+        if (strlen(buffer) == 0)
+            break;
+        bzero(response, 1024);
+        switch (buffer[0])
         {
-            // If username match one of the user on the list
-            if (strcmp(users[i].username, username) == 0)
+        //'A' for authentication
+        case 'A':
+            strcat(query, strtok(buffer, ","));
+
+            //If more than ten players are connected to the same instance, clear the records for leaderboard
+            if (iSelf > 9)
             {
-                // If password match
-                if (strcmp(users[i].password, password) == 0)
-                {
-                    sendMsgToClient("Welcome to minesweeper");
-                    successAuth = true;
-                }
+                bzero(userRecords, sizeof(UserRecord) * 10);
+                bzero(gameEntries, sizeof(GameEntry) * 11);
+                iSelf = 0;
+                anyRecords--;
+            }
+
+            //Check credentials
+            if (authenticate(strtok(NULL, ","), strtok(NULL, ","), iSelf))
+            {
+                printf("%s has connected", userRecords->username);
+                strcat(response, "A,1\n");
+            }
+            else
+            {
+                printf("User attempted to connect but failed, disconnecting client...");
+                strcat(response, "A,0\n");
+            }
+            break;
+
+        //'L' for leaderboard
+        case 'L':
+            strcat(response, leaderBoard());
+            break;
+        //'P' for newGameStart
+        case 'P':
+            anyGamesPlayed++;
+            strcat(response, gameStart());
+            break;
+        //'G' for game option received
+        case 'G':
+            strcat(response, gameOptions(buffer[2], buffer[3], buffer[4], iSelf));
+            break;
+        }
+        // TO DELETE
+        printf("Response: %s\n", response);
+
+        //Send the response to client
+        communicator = write(newsockfd, response, 1024);
+
+        if (communicator < 0)
+            error("ERROR writing to socket", newsockfd);
+    }
+
+    close(newsockfd);
+}
+
+int authenticate(char *password, char *username, int iSelf)
+{
+
+    FILE *fp;
+    char buff[255];
+
+    fp = fopen("Authentication.txt", "r");
+    fgets(buff, 255, (FILE *)fp);
+    //New entry is going to be entered in user records, so track it with iSelf
+    iSelf = iUserRecords++;
+    userRecords[iSelf].username = strdup(username);
+
+    do
+    {
+        fscanf(fp, "%s", buff);
+        if (strcmp(username, buff) == 0)
+        {
+            do
+            {
+                fscanf(fp, "%s", buff);
+            } while (buff[0] == ' ');
+
+            if (strcmp(password, buff) == 0)
+            {
+                fclose(fp);
+                return 1;
+            }
+            else
+            {
+                break;
             }
         }
+    } while (fgets(buff, 255, (FILE *)fp) != NULL && keepRunning);
 
-        if(successAuth == false){
-            sendMsgToClient("Login failed! Check password");
-        }
-
-    }
+    fclose(fp);
+    return 0;
 }
 
-// Read File Function
-void read_AUTH_File()
+/**Game Related Functions*/
+char *gameOptions(char rop, char tileA, char tile1, int iSelf)
 {
-
-    FILE *file_pointer;
-    // Open a stream to the file
-    file_pointer = fopen(AUTH_TXT, "r");
-
-    user_list_count = 1;
-    int ch = 0;
-
-    while ((ch = fgetc(file_pointer)) != EOF)
+    char out[1024] = "";
+    if (rop == 'P')
     {
-        if (ch == '\n')
+        placeFlag(tileA, tile1);
+    }
+    else if (rop == 'R')
+    {
+        revealTile(tileA, tile1);
+    }
+
+    if (getStatus()) //Check status, if the games is over yet or not.
+    {
+        strcat(out, "R,");
+        anyGamesPlayed--;
+        userRecords[iSelf].gamesPlayed++;
+        if (getResult()) //If the user has won
         {
-            user_list_count++;
-        }
-    }
-
-    rewind(file_pointer);
-
-    users = malloc(sizeof(struct User) * user_list_count);
-
-    for (int i = 0; i < user_list_count; i++)
-    {
-        char username[64], password[64];
-        fscanf(file_pointer, "%s", username);
-        fscanf(file_pointer, "%s", password);
-        users[i].username = malloc(strlen(username) + 1);
-        users[i].password = malloc(strlen(password) + 1);
-        strcpy(users[i].username, username);
-        strcpy(users[i].password, password);
-    }
-
-    fclose(file_pointer);
-}
-
-// Setting up the port
-void setPort(int argc, char *argv[])
-{
-    if (argc == 1)
-    {
-        puts("\n");
-        printf("Setting up default port on: %d", PORT_NUM);
-        puts("\n");
-    }
-    else if (argc == 2)
-    {
-        int length = strlen(argv[1]);
-
-        if (length > 5)
-        {
-            puts("\n");
-            printf("Error: Try port number with 5 charecters");
-            puts("\n");
+            userRecords[iSelf].gamesWon++;
+            anyRecords++;
+            strcat(out, print_game());
+            strcat(out, "\n\nCongratulations, you have won the match. Time Taken");
+            sprintf(out, "%s: %i seconds\n", out, getTime());
+            //Add a new entry at the end of Records array.
+            gameEntries[10].indexUserRecord = iSelf;
+            gameEntries[10].time = getTime();
+            //Sort the array as specified.
+            qsort(gameEntries, 11, sizeof(GameEntry), &compare_ints);
         }
         else
         {
-            PORT_NUM = atoi(argv[1]);
-            puts("\n");
-            printf("Setting port on port: %d", PORT_NUM);
-            puts("\n");
+            strcat(out, reveal_mines());
+            strcat(out, "You have lost the game.");
+            sprintf(out, "%s. TimeTaken: %i seconds\n", out, getTime());
         }
     }
     else
     {
-        puts("\n");
-        printf("Error: Too many arguments, try again");
-        puts("\n");
+        strcat(out, "G,");
+        strcat(out, print_game());
     }
+
+    return strdup(out);
 }
 
-
-// This is required for accessing leaderboard, for example if somebody
-// have won the game, it will need to block anyone from reading it, while
-// updating it. USED FOR CRITICAL SECTION
-// More info: https://stackoverflow.com/questions/14888027/mutex-lock-threads
-void createMutexes()
+char *gameStart()
 {
-    pthread_mutex_init(&write_leader_mutex, NULL);
-    pthread_mutex_init(&read_leader_mutex, NULL);
-}
-// exit the game and free resources
+    char out[1024] = "G,";
 
-void exitProgram()
+    //Lock the thread, so that calls to rand() are synchronised
+    pthread_mutex_lock(&lock);
+    mainGame();
+    pthread_mutex_unlock(&lock);
+    strcat(out, print_game());
+
+    return strdup(out);
+}
+
+/**Leader Board Related Function*/
+
+/* Comparison function. Receives two generic (void) pointers to the items under comparison. */
+int compare_ints(const void *p, const void *q)
 {
-    printf("\n\n Ctrl+c was pressed, caused an interupt, closing connection \n\n");
+    GameEntry x = *(const GameEntry *)p;
+    GameEntry y = *(const GameEntry *)q;
 
-    // will need to free memory here
-    close(server_socket);
-    close(client_socket);
-
-    printf("Memory has been freed, sockets and memory are down\n");
-    exit(1);
-}
-
-
-// ********************************* function for Game ****************************************
-
-// Place the mines to the game broad and init the adjacent number to the gamebroad
-void gameSetUp(){
-    place_mines();
-    cal_adjacent_mines_for_all_tiles();
-}
-
-void waitClientSelectMenu(){
-    bool selectedOption = false;
-    while( selectedOption == false ){
-        sendMsgToClient("Please enter a selection");
-        sendMsgToClient("<1> Play Minesweeper ");
-        sendMsgToClient("<2> Show Leaderbroad");
-        sendMsgToClient("<3> Quit");
-        sendMsgToClient("Selection option (1-3) :");
-        ReceiveMsgFromClient();
-        if( (buffer[0] == '1' || buffer[0] == '2' || buffer[0] == '3' ) && (strlen(buffer) == 1) ){
-            selectedOption = true;
-        } else {
-            sendMsgToClient("[-] Insert incorrect, only accept 1 - 3");
-        }
-    }
-}
-
-void SendGameBroadToClient(){
-
-    sprintf(buffer,"Remaining mines :  %d ", remainMines);
-    sendMsgToClient(buffer);
-
-    sendMsgToClient("     1  2  3  4  5  6  7  8  9  ");
-    sendMsgToClient("--------------------------------");
-
-    for(int y = 0; y < NUM_TILES_Y; y ++){
-        char column[40] = "";
-        char line[] = "A | ";
-
-        for (int x = 0; x < NUM_TILES_X; x++){
-
-            // If the tiles already revealed
-            if (playerState.tiles[x][y].revealed == true){
-                if ( tile_contains_mine(x,y) ){   // If this tile is a bomb
-                   strcat( column , " + ");
-                } else {                        // else print the adjacent mines number
-                    char adj_number[20];
-                    sprintf(adj_number," %d ", playerState.tiles[x][y].adjacent_mines);
-                    strcat(column, adj_number);
-                }
-            }
-
-            else { // The tiles is not revealed by the user
-               strcat( column , " - ");
-            }
-
-        }
-        // Print Whole line
-        line[0] += y;
-        sendMsgToClient( strcat(line , column) );
-    }
-
-}
-
-void SendGoalBroadToClient(){
-
-    sprintf(buffer,"Remaining mines : %d ", remainMines);
-    sendMsgToClient(buffer);
-
-    sendMsgToClient("     1  2  3  4  5  6  7  8  9  ");
-    sendMsgToClient("--------------------------------");
-
-    for(int y = 0; y < NUM_TILES_Y; y ++){
-        char column[40] = "";
-        char line[] = "A | ";
-
-        for (int x = 0; x < NUM_TILES_X; x++){
-
-            if ( tile_contains_mine(x,y) ){   // If this tile is a bomb
-                strcat( column , " * ");
-            } else {                        // else print the adjacent mines number
-                char adj_number[20];
-                sprintf(adj_number," %d ", playerState.tiles[x][y].adjacent_mines);
-                strcat(column, adj_number);
-            }
-        }
-        // Print Whole line
-        line[0] += y;
-        sendMsgToClient( strcat(line , column) );
-    }
-
-}
-
-// Randomly place the mines on the gamebroad
-void place_mines(){
-    remainMines = NUM_MINES;
-    for (int i = 0; i < NUM_MINES; i++){
-        int x, y;
-        do {
-            x = rand() % NUM_TILES_X;
-            y = rand() % NUM_TILES_Y;
-        } while (tile_contains_mine(x, y));
-        playerState.tiles[x][y].is_mine = true;
-    }
-}
-
-// Calculate the adjacent mines in this coordinate
-int cal_adjacent_mines(int x, int y){
-    int mines = 0;
-
-    // Check up, down, left, right.
-    if( (playerState.tiles[x - 1][y].is_mine == true) && (x - 1 != -1) )
-        mines ++;
-
-    if( (playerState.tiles[x + 1][y].is_mine == true) && (x + 1 <= NUM_TILES_X - 1) )
-        mines ++;
-
-    if( (playerState.tiles[x][y - 1].is_mine == true) && (y - 1 != -1) )
-        mines ++;
-
-    if( (playerState.tiles[x][y + 1].is_mine == true) && (y + 1 <= NUM_TILES_Y - 1) )
-        mines ++;
-
-    // Check all diagonal directions
-    if( (playerState.tiles[x - 1][y + 1].is_mine == true) && (x - 1 != -1) && (y + 1 <= NUM_TILES_Y - 1) )
-        mines ++;
-    if( (playerState.tiles[x - 1][y - 1].is_mine == true) && (x - 1 != -1)  &&  (y - 1 != -1) )
-        mines ++;
-    if( (playerState.tiles[x + 1][y + 1].is_mine == true) && (x + 1 <= NUM_TILES_X - 1 ) && (y + 1 <= NUM_TILES_Y - 1) )
-        mines ++;
-    if( (playerState.tiles[x + 1][y - 1].is_mine == true) && (x + 1 <= NUM_TILES_X - 1 ) && (y - 1 != -1) )
-        mines ++;
-
-    return mines;
-}
-
-void cal_adjacent_mines_for_all_tiles(){
-    // Calculate all the adjacent mines for all the tiles
-    for (int y = 0; y < NUM_TILES_Y; y++){
-        for (int x = 0; x < NUM_TILES_X; x++){
-            playerState.tiles[x][y].adjacent_mines = cal_adjacent_mines(x,y);
-        }
-    }
-}
-
-// Reveal a tile according to the input coordinate
-void revealTile(int x , int y){
-
-    if ( playerState.tiles[x][y].is_mine ){
-        printf("You lose !!! \n");
-        // displayTheGoalBroad();
-        game_on = false;
-        exit(1);
-    }
-
-    if (playerState.tiles[x][y].revealed){
-        printf("This tile has already revealed !, Please insert another tile. \n\n");
-    } 
-    
-    else {
-        playerState.tiles[x][y].revealed = true;
-        // if this target is a zero, then check the adjacent mines is it zero
-        if ( playerState.tiles[x][y].adjacent_mines == 0){
-            revealSurroundingZeroTiles(x, y);
-        }
-    }
-
-}
-
-// Place a flag on the mines
-void PlaceFlag(int x, int y){
-    if (playerState.tiles[x][y].is_mine == true ){
-        playerState.tiles[x][y].revealed = true;
-        remainMines--;
-    } else {
-        printf("Your can not place flag there. \n\n");
-    }
-}
-
-// If user found a Zero Tiles, it will reveal all the zero tiles nearby
-void revealSurroundingZeroTiles(int x, int y){
-    int nearByMines = 0;
-    int i = 0;
-
-    // Checking Up Position
-    while( y - i != -1 && nearByMines == 0){
-        nearByMines = cal_adjacent_mines(x, y - i);
-        if ( nearByMines == 0 ){
-            playerState.tiles[x][y - i].revealed = true;
-        }
-        i++;
-    }
-
-    // Checking down Position
-    i = 0;
-    nearByMines = 0;
-    while( y + i != NUM_TILES_Y && nearByMines == 0){
-        nearByMines = cal_adjacent_mines(x, y + i);
-        if ( nearByMines == 0 ){
-            playerState.tiles[x][y + i].revealed = true;
-        }
-        i++;
-    }
-
-    // Checking Left Position
-    i = 0;
-    nearByMines = 0;
-    while( x - i != -1 && nearByMines == 0){
-        nearByMines = cal_adjacent_mines(x - i, y);
-        if ( nearByMines == 0 ){
-            playerState.tiles[x - i][y].revealed = true;
-        }
-        i++;
-    }
-
-    // Checking Right Position
-    i = 0;
-    nearByMines = 0;
-    while( x + i != NUM_TILES_X && nearByMines == 0){
-        nearByMines = cal_adjacent_mines(x + i, y);
-        if ( nearByMines == 0 ){
-            playerState.tiles[x + i][y].revealed = true;
-        }
-        i++;
-    }
-
-    // Checking Down-Left Position
-    i = 0;
-    nearByMines = 0;
-    while( y + i != NUM_TILES_Y && x - i != -1 && nearByMines == 0){
-        nearByMines = cal_adjacent_mines(x - i, y + i);
-        if ( nearByMines == 0 ){
-            playerState.tiles[x - i][y + i].revealed = true;
-        }
-        i++;
-    }
-
-    // Checking Down-Right Position
-    i = 0;
-    nearByMines = 0;
-    while( y + i != NUM_TILES_Y && x + i != NUM_TILES_X && nearByMines == 0){
-        nearByMines = cal_adjacent_mines(x + i, y + i);
-        if ( nearByMines == 0 ){
-            playerState.tiles[x + i][y + i].revealed = true;
-        }
-        i++;
-    }
-
-    // Checking Up-Left Position
-    i = 0;
-    nearByMines = 0;
-    while( y - i != -1 && x - i != -1 && nearByMines == 0){
-        nearByMines = cal_adjacent_mines(x - i, y - i);
-        if ( nearByMines == 0 ){
-            playerState.tiles[x - i][y - i].revealed = true;
-        }
-        i++;
-    }
-
-    // Checking Up-Right Position
-    i = 0;
-    nearByMines = 0;
-    while( y - i != -1 && x + i != NUM_TILES_X && nearByMines == 0){
-        nearByMines = cal_adjacent_mines(x + i, y - i);
-        if ( nearByMines == 0 ){
-            playerState.tiles[x + i][y - i].revealed = true;
-        }
-        i++;
-    }
-
-    //End Checking
-
-}
-
-// Check this Coordinate is it mine or not
-int tile_contains_mine(int x, int y){
-    if (playerState.tiles[x][y].is_mine == true){
+    if (x.time < y.time)
+        return -1;
+    else if (x.time > y.time)
         return 1;
+    else if (x.time == y.time)
+    {
+        if (userRecords[x.indexUserRecord].gamesWon > userRecords[y.indexUserRecord].gamesWon)
+            return -1;
+        else if (userRecords[x.indexUserRecord].gamesWon < userRecords[y.indexUserRecord].gamesWon)
+            return 1;
+        else if (userRecords[x.indexUserRecord].gamesWon == userRecords[y.indexUserRecord].gamesWon)
+            return strcmp(userRecords[x.indexUserRecord].username, userRecords[x.indexUserRecord].username);
     }
     return 0;
 }
 
-// initialising Timer for the game
-void initialiseTimer()
+char *leaderBoard()
 {
-
-    hour = minute = second = 0;
-    while (1)
+    int i = 0;
+    char out[1024];
+    bzero(out, 1024);
+    if (anyGamesPlayed != 0) //If any game is being played rightnow.
     {
-        system("clear");
-        //clear output screen
-        //print time in HH : MM : SS format
-        // SHOULD BE USED WHENEVER WE NEED IT TO DISPLAY AFTER
-        printf("%02d : %02d : %02d ", hour, minute, second);
-        //clear output buffer in gcc
-        fflush(stdout);
-        //increase second
-        second++;
-        //update hour, minute and second
-        if (second == 60)
+        sprintf(out, "L,Cannot read the leaderboard while other players are playing\n");
+        return strdup(out);
+    }
+    if (anyRecords == 0) //If none of the game is won yet.
+    {
+        strcat(out, "L,No records available.\n");
+    }
+    else
+    {
+        strcat(out, "L,LeaderBoard\n");
+        for (i = anyRecords - 1; i >= 0; i--)
         {
-            minute += 1;
-            second = 0;
+            UserRecord userRecord = userRecords[gameEntries[i].indexUserRecord];
+            sprintf(out, "%s\n%s , %i seconds, %i games won, %i games played", out, userRecord.username, gameEntries[i].time, userRecord.gamesWon, userRecord.gamesPlayed);
         }
-        if (minute == 60)
-        {
-            hour += 1;
-            minute = 0;
-        }
-        if (hour == 24)
-        {
-            hour = 0;
-            minute = 0;
-            second = 0;
-        }
-        sleep(1); //wait till 1 second
+    }
+    return strdup(out);
+}
+
+/**Thread Related Functions*/
+void threadsInit()
+{
+    int i = NUMOFTHREADS;
+    pthread_t t[NUMOFTHREADS];
+    for (i = 0; i < NUMOFTHREADS; i++)
+    {
+        pthread_create(&t[i], NULL, threadWorker, NULL);
     }
 }
+
+void *threadWorker(void *args)
+{
+    while (keepRunning)
+    {
+        //Waiting till a new connection is there to be served.
+        pthread_mutex_lock(&lock);
+        while (pointer < 0)
+            pthread_cond_wait(&cv, &lock);
+        //Read connection from connections buffer
+        int newsockfd = buffer[pointer--];
+        pthread_mutex_unlock(&lock);
+
+        //Pass the connection to serverFunction
+        serverFunction(newsockfd);
+    }
+}
+
+//Errors related to one client
+void error(const char *msg, int newsockfd)
+{
+    perror(msg);
+    if (!(newsockfd < 0))
+        close(newsockfd);
+}
+
+//Error on server side. Socket creating and bindings ones.
+void fatalerror(const char *msg)
+{
+    perror(msg);
+    exit(0);
+}
+

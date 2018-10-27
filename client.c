@@ -16,16 +16,24 @@
 void error(const char *msg)
 {
     perror(msg);
-    printf("Server has shut down.");
+    printf("Something is wrong with the Server.\n");
     exit(0);
 }
 
+// Function for developing the connection to the server 
 void connectToServer(int argc, char * argv[]);
-void gameOptions();
+// Client Side Authentication Function 
 void loginInterface();
 void loginFailed();
+// Print and Action Function for user selection option
+void gameOptions();
 void mainMenu();
+// Function for quit the game
 void exitGame();
+
+// Function for transfer/receive data to/from the server
+void sendQueryToServer();
+void ReadDataFromServer();
 
 char buffer[1024];
 int sockfd, portno, n;
@@ -38,67 +46,57 @@ int main(int argc, char *argv[])
     // struct sockaddr_in serv_addr;
     // struct hostent *server;
 
+    // Listening the ctrl c commend for quiting the program
     signal(SIGINT, exitGame);
+    // Make the server connection
+    connectToServer(argc, argv);
 
     //Once connected to Server, the first thing is to authenticate
     loginInterface();
-    do{
-        //Send the query to server
-        //printf("Query: %s\n", buffer);
-        n = write(sockfd,buffer,strlen(buffer));
-        if (n < 0)
-            error("ERROR writing to socket");
 
-        //Clear the buffer and Read the response 
-        bzero(buffer,1024);
-        n = read(sockfd,buffer,1024);
-        if (n < 0)
-            error("ERROR reading from socket");
-        
+    do{
+        // Send the Query to server
+        sendQueryToServer();
+        // Receive the msg back from the server
+        ReadDataFromServer();
+
         //If there's no response, the server has shut down
         if (buffer[0]=='\0')
             break;
 
         //Parse the response
         //printf("Response: %s\n",buffer);
+
         /*The response is in the format that first two characters "(X)," represent what type of response is that. */
-        //'A' is for authenticate
-        if (buffer[0] == 'A')
-        {
-            switch(buffer[2])
-            {
-                case '0':
-                    //Login not successful. Time to shutdown.
-                    loginFailed();
-                    break;
-                case '1':
-                    //Login successful. Move to Main Menu.
-                    mainMenu();
-                    break;
-            }
-        }
-        //'L' is for leaderboard
-        else if (buffer[0] == 'L' )
-        {
-            //Print the LeaderBoard 
-            printf("%s", buffer + 2);
-            //and now move to main menu
-            mainMenu();
-        }
-        //'G' is for Game Response, the game is not over yet.
-        else if (buffer[0] == 'G')
-        {
-            printf("%s", buffer + 2);
-            gameOptions();
-        }
-        //'R' is for result. The game is over
-        else if (buffer[0] == 'R')
-        {
-            printf("%s", buffer + 2);
-            mainMenu();
+        switch(buffer[0]){
+            case 'A':                       // 'A' is for Authentication
+                if(buffer[2] == '0') 
+                    loginFailed();          // Login not successful. Time to shutdown.
+                else if (buffer[2] == '1') 
+                    mainMenu();             // Login successful. Move to Main Menu.
+                break;
+
+            case 'L':                       // 'L' is for LeaderBoard
+                printf("%s", buffer + 2);   // Print the LeaderBoard 
+                mainMenu();                 // move to main menu
+                break;
+            
+            case 'G':                       // 'G' is for Game Response, the game is not over yet.
+                printf("%s", buffer + 2);
+                gameOptions();
+                break;
+
+            case 'R':                       // 'R' is for result. The game is over
+                printf("%s", buffer + 2);
+                mainMenu();
+                break;
+
+            default:
+                break;
         }
 
-    } while(1);
+    } while(true);
+    // Kill the socket
     close(sockfd);
     return 0;
 }
@@ -146,7 +144,6 @@ void loginInterface()
     char username[20];
     char password[20];
 
-
     puts("==========================================================================\n");
     puts("\n");
     puts("            Welcome to the online minesweeper gaming system.             \n ");
@@ -172,16 +169,38 @@ void loginInterface()
     /*Query is in the same format. First two characters represent what kind of query*/
     //'A' for authentication
     strcat(buffer, "A,");
-    strcat(buffer, username); strcat(buffer, ",");
+    strcat(buffer, username); 
+    strcat(buffer, ",");
     strcat(buffer, password);
 
 }
 
+// Function for User entering the wrong username or password
+// It will kill the app and send the msg to the user
 void loginFailed()
 {
-    printf("You entered an incorrect username or password. Disconnecting..");
+    // Display the error msg to the client
+    puts("You entered an incorrect username or password. Disconnecting..");
+    // destroy the socket
     close(sockfd);
+    //Quit Program
     exit(0);
+}
+
+// Function for Sending the query to server
+void sendQueryToServer(){
+    //printf("Query: %s\n", buffer);
+    n = write(sockfd,buffer,strlen(buffer));
+    if (n < 0)
+        error("ERROR writing to socket");
+}
+
+void ReadDataFromServer(){
+    //Clear the buffer and Read the response 
+    bzero(buffer,1024);
+    n = read(sockfd,buffer,1024);
+    if (n < 0)
+        error("ERROR reading from socket");
 }
 
 void mainMenu()
@@ -227,15 +246,19 @@ void mainMenu()
 
 void gameOptions()
 {
-    char option;
-    char tileCoordinates[3];
-    printf("Choose an option:\n");
-    printf("<R> Reveal tile\n");
-    printf("<P> Place Flag\n");
-    printf("<Q> Quit Game\n");
-    printf("Option (R, P, Q): ");
+    
+    char option;             // Variable for recording the option user has choice
+    char tileCoordinates[3]; // Variable for the coordinate for the action
+
+    puts("Choose an option:");
+    puts("<R> Reveal tile");
+    puts("<P> Place Flag");
+    puts("<Q> Quit Game");
+    puts("Option (R, P, Q): ");
+
     scanf("%c", &option);
-    //Validating the input
+
+    // Validating the input
     while(option > 'R' || option < 'P')
     {
        printf("Please select between (R, P, Q):");
@@ -266,8 +289,10 @@ void gameOptions()
 
 void exitGame()
 {
+    // If socket ID is exist
     if (sockfd)
     {
+        // Destroy it
         close(sockfd);
     }
 

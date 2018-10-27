@@ -162,7 +162,6 @@ int serverInit(int portNumber)
 
 void serverFunction(int newsockfd)
 {
-
     //Variable to track the index of player in UserRecords array for LeaderBoard
     int iSelf;
 
@@ -311,16 +310,19 @@ char *gameOptions(char rop, char tileA, char tile1, int iSelf)
             strcat(out, "\n\nCongratulations, you have won the match. Time Taken");
             sprintf(out, "%s: %i seconds\n", out, getTime());
             //Add a new entry at the end of Records array.
-            gameEntries[10].indexUserRecord = iSelf;
-            gameEntries[10].time = getTime();
+            for (int i = anyRecords - 1; i >= 0; i--)
+            {
+                gameEntries[i].indexUserRecord = iSelf;
+                gameEntries[i].time = getTime();
+            }
             //Sort the array as specified.
             qsort(gameEntries, 11, sizeof(GameEntry), &compare_ints);
         }
         else
         {
-            strcat(out, reveal_mines());
-            strcat(out, "You have lost the game.");
-            sprintf(out, "%s. TimeTaken: %i seconds\n", out, getTime());
+            strcat(out, print_fullGameBroad());
+            strcat(out, "\n\nYou have lost the game. :( \n");
+            sprintf(out, "%sTimeTaken: %i seconds\n", out, getTime());
         }
     }
     else
@@ -371,7 +373,6 @@ int compare_ints(const void *p, const void *q)
 
 char *leaderBoard()
 {
-    int i = 0;
     char out[1024];
     bzero(out, 1024);
     if (anyGamesPlayed != 0) //If any game is being played rightnow.
@@ -386,10 +387,11 @@ char *leaderBoard()
     else
     {
         strcat(out, "L,LeaderBoard\n");
-        for (i = anyRecords - 1; i >= 0; i--)
+        for (int i = anyRecords - 1; i >= 0; i--)
         {
             UserRecord userRecord = userRecords[gameEntries[i].indexUserRecord];
-            sprintf(out, "%s\n%s , %i seconds, %i games won, %i games played \n", out, userRecord.username, gameEntries[i].time, userRecord.gamesWon, userRecord.gamesPlayed);
+            printf(" i is currently %d \n", i);
+            sprintf(out, "%s\n%s , %i seconds, %i games won, %i games played \n", out, userRecord.username, gameEntries[10].time, userRecord.gamesWon, userRecord.gamesPlayed);
         }
     }
     return strdup(out);

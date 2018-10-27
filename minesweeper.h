@@ -30,7 +30,7 @@ int cal_adjacent_mines(int x, int y);
 
 char *print_game();
 
-char *reveal_mines();
+char *print_fullGameBroad();
 
 void place_mines();
 

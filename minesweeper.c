@@ -29,38 +29,38 @@ void place_mines(){
 	}
 }
 
-char * reveal_mines(){
-    char out[400];
+char * print_fullGameBroad(){
 	int x,y;
-	sprintf(out, "    ");
-	for(x=1;x<=NUM_TILES_X;x++) sprintf(out, "%s%d ", out, x);
-	strcat(out, "\n----");
-	for(x=0;x<NUM_TILES_X;x++) strcat(out, "--");
-	strcat(out, "\n");
+	char out[400];
+	
+	sprintf(out, "Remaining Mines = %d\n    ", remainingMines);
+	for(x=1;x<=NUM_TILES_Y;x++) sprintf(out, "%s%d ", out, x);
+	sprintf(out, "%s\n----", out);
+	for(x=0;x<NUM_TILES_Y;x++) sprintf(out, "%s--", out);
+	sprintf(out, "%s\n", out);
 
 	for(x=0;x<NUM_TILES_X;x++){
 		sprintf(out, "%s%c | " , out, (char)('A' + x));
-			for(y=0;y<NUM_TILES_X;y++){
-				if(game.tiles[x][y].is_flagged)
-					strcat(out, "+ ");
-				else if(game.tiles[x][y].is_mine){
-					strcat(out, "* ");
+			for(y=0;y<NUM_TILES_Y;y++){
+				if(game.tiles[x][y].is_mine){
+					sprintf(out, "%s* ", out);
 				}
-				else{
-					strcat(out, "  ");
-				}
+                else {
+                    sprintf(out, "%s%d ", out, game.tiles[x][y].adj_mines);
+                }
+				if(NUM_TILES_Y > 9) sprintf(out, "%s ", out);
 		}
-		strcat(out, "\n");
+		sprintf(out, "%s\n", out);
 	}
 
-    return strdup(out);
+	return strdup(out);
 }
 
 char * print_game(){
 	int x,y;
 	char out[400];
 	
-	sprintf(out, "Remaining Mines = %d\n    ", remainingMines);
+	sprintf(out, "\nRemaining Mines = %d\n    ", remainingMines);
 	for(x=1;x<=NUM_TILES_Y;x++) sprintf(out, "%s%d ", out, x);
 	sprintf(out, "%s\n----", out);
 	for(x=0;x<NUM_TILES_Y;x++) sprintf(out, "%s--", out);

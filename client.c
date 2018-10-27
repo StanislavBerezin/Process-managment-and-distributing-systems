@@ -271,7 +271,7 @@ void gameOptions()
     // If quit.
     if (option == 'Q')
     {
-        exitGame();
+        displayMainMenu();
     }
     else //If 'P' aur 'R'
     {

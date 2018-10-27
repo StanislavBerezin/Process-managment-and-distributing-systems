@@ -20,9 +20,9 @@ typedef struct{
 
 int mainGame();
 
-void find_adjacent();
+void cleanGame();
 
-void reveal_adj(int i, int j);
+void find_adjacent();
 
 void update_adj_count(int i, int j);
 
@@ -39,6 +39,10 @@ int tile_contains_mine(int x, int y);
 void placeFlag(char tileA, char tile1);
 
 void revealTile(char tileA, char tile1);
+
+void reveal_adj(int i, int j);
+
+void reveal_ZeroAdj(int x, int y);
 
 int getResult();
 

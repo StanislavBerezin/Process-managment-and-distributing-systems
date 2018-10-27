@@ -8,7 +8,7 @@
 
 
 struct timeval  tv1, tv2;
-
+int gameRound = 0;
 
 GameState game;
 int remainingMines;
@@ -265,10 +265,11 @@ time_t t;
 int flags_placed = 0;
 double cpu_time_used;
 
-int mainGame(){
+int mainGame(int seed){
     bzero(&game, sizeof(GameState));
  	flags_placed = 0;
-	srand(RANDOM_NUMBER_SEED);
+    srand(RANDOM_NUMBER_SEED + gameRound);
+    gameRound++;
     gettimeofday(&tv1, NULL);
 	place_mines();
 	find_adjacent();

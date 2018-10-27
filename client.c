@@ -20,6 +20,7 @@ void error(const char *msg)
     exit(0);
 }
 
+void connectToServer(int argc, char * argv[]);
 void gameOptions();
 void loginInterface();
 void loginFailed();
@@ -33,37 +34,11 @@ struct hostent *server;
 
 int main(int argc, char *argv[])
 {
-    int sockfd, portno, n;
-    struct sockaddr_in serv_addr;
-    struct hostent *server;
+    // int sockfd, portno, n;
+    // struct sockaddr_in serv_addr;
+    // struct hostent *server;
 
     signal(SIGINT, exitGame);
-
-    if (argc < 3) {
-       fprintf(stderr,"usage %s hostname port\n", argv[0]);
-       exit(0);
-    }
-    portno = atoi(argv[2]);
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0)
-        error("ERROR opening socket");
-    server = gethostbyname(argv[1]);
-    if (server == NULL) {
-        fprintf(stderr,"ERROR, no such host\n");
-        exit(0);
-    }
-
-    bzero((char *) &serv_addr, sizeof(serv_addr));
-
-    serv_addr.sin_family = AF_INET;
-
-    bcopy( (char *)server->h_addr ,
-         (char *)&serv_addr.sin_addr.s_addr,
-         server->h_length);
-
-    serv_addr.sin_port = htons(portno);
-    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
-        error("ERROR connecting");
 
     //Once connected to Server, the first thing is to authenticate
     loginInterface();
@@ -126,6 +101,44 @@ int main(int argc, char *argv[])
     } while(1);
     close(sockfd);
     return 0;
+}
+
+void connectToServer(int argc, char * argv[]){
+    // If the command line argument is less than 3
+    if (argc < 3) {
+       fprintf(stderr,"usage %s hostname port\n", argv[0]);
+       exit(0);
+    }
+
+    // Read the port number from the third posiition of command line argument 
+    portno = atoi(argv[2]);
+    // Create Socket
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (sockfd < 0) // If Socket Creation is fail
+        error("ERROR opening socket");
+    
+    // get the server IP address by reading the second position of command line argument
+    server = gethostbyname(argv[1]);
+
+    if (server == NULL) { // if can not find the server
+        fprintf(stderr,"ERROR, no such host\n");
+        exit(0);
+    }
+
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+    // Using TCP/IP
+    serv_addr.sin_family = AF_INET;
+
+    bcopy( (char *)server->h_addr ,
+         (char *)&serv_addr.sin_addr.s_addr,
+         server->h_length);
+
+    serv_addr.sin_port = htons(portno);
+
+    // Connecting to the server
+    if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
+        error("ERROR connecting"); // If it is error for connection
 }
 
 void loginInterface()

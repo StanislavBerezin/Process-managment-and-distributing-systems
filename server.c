@@ -389,7 +389,7 @@ char *leaderBoard()
         for (i = anyRecords - 1; i >= 0; i--)
         {
             UserRecord userRecord = userRecords[gameEntries[i].indexUserRecord];
-            sprintf(out, "%s\n%s , %i seconds, %i games won, %i games played", out, userRecord.username, gameEntries[i].time, userRecord.gamesWon, userRecord.gamesPlayed);
+            sprintf(out, "%s\n%s , %i seconds, %i games won, %i games played \n", out, userRecord.username, gameEntries[i].time, userRecord.gamesWon, userRecord.gamesPlayed);
         }
     }
     return strdup(out);

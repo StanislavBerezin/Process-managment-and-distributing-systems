@@ -7,7 +7,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include "minesweeper.h"
+// #include "minesweeper.h"
 #include <pthread.h>
 #include <signal.h>
 #include <dirent.h>
@@ -425,4 +425,3 @@ void fatalerror(const char *msg)
     perror(msg);
     exit(0);
 }
-

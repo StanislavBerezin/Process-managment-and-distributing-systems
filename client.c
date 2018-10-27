@@ -1,3 +1,9 @@
+//Sokcet Header file
+#include <netdb.h>
+#include <netinet/in.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+// Standard C Header File
 #include <stdio.h>
 #include <signal.h>
 #include <strings.h>
@@ -5,11 +11,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdbool.h>
-//Sokcet Header file
-#include <netdb.h>
-#include <netinet/in.h>
-#include <sys/types.h>
-#include <sys/socket.h>
+
 
 #define h_addr h_addr_list[0] /* for backward compatibility */
 
@@ -23,11 +25,12 @@ void error(const char *msg)
 // Function for developing the connection to the server 
 void connectToServer(int argc, char * argv[]);
 // Client Side Authentication Function 
-void loginInterface();
+void displayLoginUI();
 void loginFailed();
 // Print and Action Function for user selection option
+void MenuSwitch();
 void gameOptions();
-void mainMenu();
+void displayMainMenu();
 // Function for quit the game
 void exitGame();
 
@@ -35,14 +38,15 @@ void exitGame();
 void sendQueryToServer();
 void ReadDataFromServer();
 
-char buffer[1024];
-int sockfd, portno, n;
+// Variable for socket programing
+char buffer[1024];  // A buffer for sending or receiving message to or from the server
+int sockfd, portNumber, n;
 struct sockaddr_in serv_addr;
 struct hostent *server;
 
 int main(int argc, char *argv[])
 {
-    // int sockfd, portno, n;
+    // int sockfd, portNumber, n;
     // struct sockaddr_in serv_addr;
     // struct hostent *server;
 
@@ -52,7 +56,7 @@ int main(int argc, char *argv[])
     connectToServer(argc, argv);
 
     //Once connected to Server, the first thing is to authenticate
-    loginInterface();
+    displayLoginUI();
 
     do{
         // Send the Query to server
@@ -63,42 +67,42 @@ int main(int argc, char *argv[])
         //If there's no response, the server has shut down
         if (buffer[0]=='\0')
             break;
-
-        //Parse the response
-        //printf("Response: %s\n",buffer);
-
-        /*The response is in the format that first two characters "(X)," represent what type of response is that. */
-        switch(buffer[0]){
-            case 'A':                       // 'A' is for Authentication
-                if(buffer[2] == '0') 
-                    loginFailed();          // Login not successful. Time to shutdown.
-                else if (buffer[2] == '1') 
-                    mainMenu();             // Login successful. Move to Main Menu.
-                break;
-
-            case 'L':                       // 'L' is for LeaderBoard
-                printf("%s", buffer + 2);   // Print the LeaderBoard 
-                mainMenu();                 // move to main menu
-                break;
-            
-            case 'G':                       // 'G' is for Game Response, the game is not over yet.
-                printf("%s", buffer + 2);
-                gameOptions();
-                break;
-
-            case 'R':                       // 'R' is for result. The game is over
-                printf("%s", buffer + 2);
-                mainMenu();
-                break;
-
-            default:
-                break;
-        }
+        MenuSwitch();
 
     } while(true);
     // Kill the socket
     close(sockfd);
     return 0;
+}
+
+void MenuSwitch(){
+    /*The response is in the format that first two characters "(X)," represent what type of response is that. */
+    switch(buffer[0]){
+        case 'A':                       // 'A' is for Authentication
+            if(buffer[2] == '0') 
+                loginFailed();          // Login not successful. Time to shutdown.
+            else if (buffer[2] == '1') 
+                displayMainMenu();             // Login successful. Move to Main Menu.
+            break;
+
+        case 'L':                       // 'L' is for LeaderBoard
+            printf("%s", buffer + 2);   // Print the LeaderBoard 
+            displayMainMenu();                 // move to main menu
+            break;
+        
+        case 'G':                       // 'G' is for Game Response, the game is not over yet.
+            printf("%s", buffer + 2);
+            gameOptions();
+            break;
+
+        case 'R':                       // 'R' is for result. The game is over
+            printf("%s", buffer + 2);
+            displayMainMenu();
+            break;
+
+        default:
+            break;
+    }
 }
 
 void connectToServer(int argc, char * argv[]){
@@ -109,7 +113,7 @@ void connectToServer(int argc, char * argv[]){
     }
 
     // Read the port number from the third posiition of command line argument 
-    portno = atoi(argv[2]);
+    portNumber = atoi(argv[2]);
     // Create Socket
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -132,14 +136,14 @@ void connectToServer(int argc, char * argv[]){
          (char *)&serv_addr.sin_addr.s_addr,
          server->h_length);
 
-    serv_addr.sin_port = htons(portno);
+    serv_addr.sin_port = htons(portNumber);
 
     // Connecting to the server
     if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
         error("ERROR connecting"); // If it is error for connection
 }
 
-void loginInterface()
+void displayLoginUI()
 {
     char username[20];
     char password[20];
@@ -157,9 +161,11 @@ void loginInterface()
     puts("============================================================================");
     puts("");
 
+    // Read username from client
     printf("Username: ");
     scanf("%s", username);
 
+    // Read Password from client
     printf("Password: ");
     scanf("%s", password);
 
@@ -168,10 +174,10 @@ void loginInterface()
     //Making the query. 
     /*Query is in the same format. First two characters represent what kind of query*/
     //'A' for authentication
-    strcat(buffer, "A,");
-    strcat(buffer, username); 
-    strcat(buffer, ",");
-    strcat(buffer, password);
+    strcat(buffer, "A,");           // buffer = "A,"
+    strcat(buffer, username);       // buffer = "A,username"
+    strcat(buffer, ",");            // buffer = "A,username,"
+    strcat(buffer, password);       // buffer = "A,username,password"
 
 }
 
@@ -203,15 +209,15 @@ void ReadDataFromServer(){
         error("ERROR reading from socket");
 }
 
-void mainMenu()
+void displayMainMenu()
 {
     int option;
 
-    printf("Welcome to the Minesweeper Gaming System.\n\n");
-    printf("Please enter a selection\n");
-    printf("<1> Play Minsweeper\n");
-    printf("<2> Show LeaderBoard\n");
-    printf("<3> Quit\n\n");
+    puts("Welcome to the Minesweeper Gaming System.\n");
+    puts("Please enter a selection");
+    puts("<1> Play Minsweeper");
+    puts("<2> Show LeaderBoard");
+    puts("<3> Quit\n");
 
     printf("Selection Option (1-3): ");
     //fgets(buff, 10, stdin);
@@ -226,10 +232,11 @@ void mainMenu()
     }
     
     bzero(buffer, 1024);
+
     switch(option)
     {
         case 3: // If quit.
-            printf("Shutting down");
+            puts("Shutting down");
             close(sockfd);
             exit(0);
             break;
@@ -243,6 +250,7 @@ void mainMenu()
             break;
     }
 }
+
 
 void gameOptions()
 {

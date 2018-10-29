@@ -54,6 +54,7 @@ GameEntry gameEntries[11];
 
 int sockfd, newsockfd;
 socklen_t clilen;
+pthread_t t[NUMOFTHREADS];
 pthread_cond_t cv;
 pthread_mutex_t lock;
 struct sockaddr_in cli_addr;
@@ -62,6 +63,7 @@ struct sockaddr_in cli_addr;
 
 void threadsInit();
 void *threadWorker(void *args);
+void cleanThread();
 
 /**SIGINT Exit Related Functions*/
 
@@ -92,7 +94,8 @@ void sigintHandler()
 int main(int argc, char *argv[])
 {
     system("clear");
-    interruptCallled();
+    // interruptCallled();
+    signal(SIGINT, cleanThread);
     //Reading the command line args
     sockfd = serverInit(argc < 2 ? 12345 : atoi(argv[1]));
 
@@ -108,12 +111,24 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void interruptCallled()
-{
-    instance.sa_handler = sigintHandler;
-    instance.sa_flags = 0;
-    sigemptyset(&instance.sa_mask);
-    sigaction(SIGINT, &instance, NULL);
+// void interruptCallled()
+// {
+//     instance.sa_handler = sigintHandler;
+//     instance.sa_flags = 0;
+//     sigemptyset(&instance.sa_mask);
+//     sigaction(SIGINT, &instance, NULL);
+//     printf("Hello! \n");
+// }
+
+// Thread Cleaning
+void cleanThread(){
+    //Cleaning the Thread
+    for (int i = 0; i < NUMOFTHREADS; i++)
+    {
+        pthread_cancel(t[i]);
+        printf("Thread is cleaned : %d \n",i);
+    }
+    exit(0);
 }
 
 void assignThread()
@@ -401,7 +416,6 @@ char *leaderBoard()
 void threadsInit()
 {
     int i = NUMOFTHREADS;
-    pthread_t t[NUMOFTHREADS];
     for (i = 0; i < NUMOFTHREADS; i++)
     {
         pthread_create(&t[i], NULL, threadWorker, NULL);

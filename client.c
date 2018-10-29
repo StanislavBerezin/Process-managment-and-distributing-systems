@@ -207,7 +207,7 @@ void ReadDataFromServer(){
 
 void displayMainMenu()
 {
-    int option;
+    int option; 
 
     puts("Welcome to the Minesweeper Gaming System.\n");
     puts("Please enter a selection");
@@ -216,12 +216,10 @@ void displayMainMenu()
     puts("<3> Quit\n");
 
     printf("Selection Option (1-3): ");
-    //fgets(buff, 10, stdin);
-    //option = atoi(buff);
     scanf("%i", &option);
-    
+
     //Validating the input.
-    while(option > 3 || option < 1  )
+    while(option > 3 || option < 1 )
     {
     	printf("You entered %i. Please enter between 1 and 3: ", option);
         scanf("%i", &option);
@@ -263,7 +261,7 @@ void gameOptions()
     scanf("%c", &option);
 
     // Validating the input
-    while(option > 'R' || option < 'P' || strlen(&option) != 1)
+    while(option > 'R' || option < 'P' )
     {
        printf("Please select between (R, P, Q):");
        scanf("%c", &option);

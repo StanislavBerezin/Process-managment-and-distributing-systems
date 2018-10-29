@@ -4,5 +4,6 @@
         "signal.h": "c",
         "inet.h": "c",
         "stdlib.h": "c"
-    }
+    },
+    "C_Cpp.errorSquiggles": "Disabled"
 }

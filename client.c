@@ -207,7 +207,7 @@ void ReadDataFromServer(){
 
 void displayMainMenu()
 {
-    int option; 
+    char option; 
 
     puts("Welcome to the Minesweeper Gaming System.\n");
     puts("Please enter a selection");
@@ -216,29 +216,29 @@ void displayMainMenu()
     puts("<3> Quit\n");
 
     printf("Selection Option (1-3): ");
-    scanf("%i", &option);
+    scanf("%c", &option);
 
     //Validating the input.
-    while(option > 3 || option < 1 )
+    while(option > '3' || option < '1' )
     {
-    	printf("You entered %i. Please enter between 1 and 3: ", option);
-        scanf("%i", &option);
+    	printf("Please enter between 1 and 3: \n ");
+        scanf("%c", &option);
     }
     
     bzero(buffer, 1024);
 
     switch(option)
     {
-        case 3: // If quit.
+        case '3': // If quit.
             puts("Shutting down");
             close(sockfd);
             exit(0);
             break;
-        case 2: // If show leaderboard. 'L' represents leaderboard query.
+        case '2': // If show leaderboard. 'L' represents leaderboard query.
             bzero(buffer, 1024);
             strcat(buffer, "L");
             break;
-        case 1: //If start new game. 'P' is for play a new game.
+        case '1': //If start new game. 'P' is for play a new game.
             bzero(buffer, 1024);
             strcat(buffer, "P");
             break;
@@ -263,7 +263,7 @@ void gameOptions()
     // Validating the input
     while(option > 'R' || option < 'P' )
     {
-       printf("Please select between (R, P, Q):");
+       printf("Please select between (R, P, Q): \n");
        scanf("%c", &option);
     }
     // If quit.

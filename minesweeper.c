@@ -1,3 +1,10 @@
+/* CAB403 System Programming Assignment 1
+    Implemented By:
+        KA LONG Lee (Eric) (N9845097)
+        Stanislav Berezin (N9694315)
+*/
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>

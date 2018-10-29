@@ -1,3 +1,10 @@
+/* CAB403 System Programming Assignment 1
+    Implemented By:
+        KA LONG Lee (Eric) (N9845097)
+        Stanislav Berezin (N9694315)
+*/
+
+
 /* A simple server in the internet domain using TCP
    The port number is passed as an argument */
 #include <stdio.h>
@@ -51,7 +58,6 @@ typedef struct
     int time;
 } GameEntry;
 
-struct sigaction instance;
 UserRecord userRecords[10];
 GameEntry gameEntries[11];
 
@@ -216,8 +222,6 @@ void serverFunction(int newsockfd)
             strcat(response, gameOptions(bufferREQUEST[2], bufferREQUEST[3], bufferREQUEST[4], iSelf));
             break;
         }
-        // TO DELETE
-        printf("Response: %s\n", response);
 
         //Send the response to client
         communicator = write(newsockfd, response, 1024);

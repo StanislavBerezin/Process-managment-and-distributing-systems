@@ -1,3 +1,10 @@
+ /* CAB403 System Programming Assignment 1
+    Implemented By:
+        KA LONG Lee (Eric) (N9845097)
+        Stanislav Berezin (N9694315)
+*/
+
+
  #define RANDOM_NUMBER_SEED 42
 
  #define NUM_TILES_X 9

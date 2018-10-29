@@ -379,11 +379,12 @@ void placeFlag(char tileA, char tile1)
     // We don't know the limitation, if yes we can change this number
 	if (flags_placed == 10)
 	{
+        print_fullGameBroad();
         // misplaced flag lead to fail the game
         gameover = true;
-	}
-    // Print the game broad
-	print_game();
+	} 
+
+    print_game();
 	valid = true;
 }
 

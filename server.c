@@ -325,7 +325,7 @@ char *gameOptions(char rop, char tileA, char tile1, int iSelf)
         {
             userRecords[iSelf].gamesWon++;
             anyRecords++;
-            strcat(out, print_game());
+            strcat(out, print_fullGameBroad());
             strcat(out, "\n\nCongratulations, you have won the match. Time Taken");
             sprintf(out, "%s: %i seconds\n", out, getTime());
             //Add a new entry at the end of Records array.

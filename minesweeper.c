@@ -6,35 +6,47 @@
 #include "minesweeper.h"
 #include <sys/time.h>
 
-
+// Time structure
 struct timeval  tv1, tv2;
+
 int gameRound = 0;
 
 GameState game;
 int remainingMines;
 
+// A function to check this coordinate is mine or not
 int tile_contains_mine(int x, int y){
 	return game.tiles[x][y].is_mine;
 }
 
+// A function to place the mines at random position
 void place_mines(){
+    // we should place ten mines on every gamebroad
 	for(int i = 0; i < NUM_MINES;i++){
+        // x y position init
 		int x,y;
 		do{
+            // Put random number to the x y position between 0 - 8
 			x = rand() % NUM_TILES_X;
 			y = rand() % NUM_TILES_Y;
 		}while(tile_contains_mine(x,y));
+        // if the position is not mine, then we place the mines at this position
 		game.tiles[x][y].is_mine = true;
+        // in the very beginning the flag is not placed by user so this it none
 		game.tiles[x][y].is_flagged = false;
 	}
 }
 
+// A function that generate a string that can display the full game Broad (include all the information for all coordinate)
 char * print_fullGameBroad(){
+    // init a x y position detector
 	int x,y;
+    // Msg buffer
 	char out[400];
-	
+	// Generate Remaining Mines Msg
 	sprintf(out, "Remaining Mines = %d\n    ", remainingMines);
 	for(x=1;x<=NUM_TILES_Y;x++) sprintf(out, "%s%d ", out, x);
+    // Generate a line to seperate the remain msg and game broad
 	sprintf(out, "%s\n----", out);
 	for(x=0;x<NUM_TILES_Y;x++) sprintf(out, "%s--", out);
 	sprintf(out, "%s\n", out);
@@ -43,9 +55,11 @@ char * print_fullGameBroad(){
 		sprintf(out, "%s%c | " , out, (char)('A' + x));
 			for(y=0;y<NUM_TILES_Y;y++){
 				if(game.tiles[x][y].is_mine){
+                    // if this coordinate is mine, use * to denoted as mines for user
 					sprintf(out, "%s* ", out);
 				}
                 else {
+                    // if this coordinate is not mine, we should show the adj mines for this coordinate
                     sprintf(out, "%s%d ", out, game.tiles[x][y].adj_mines);
                 }
 				if(NUM_TILES_Y > 9) sprintf(out, "%s ", out);
@@ -56,12 +70,17 @@ char * print_fullGameBroad(){
 	return strdup(out);
 }
 
+// A function that create string to display a game broad to the user (according to the current game status)
 char * print_game(){
+    // init a x y position detector
 	int x,y;
+    // Msg buffer
 	char out[400];
-	
+
+	// Generate Remaining Mines Msg
 	sprintf(out, "\nRemaining Mines = %d\n    ", remainingMines);
 	for(x=1;x<=NUM_TILES_Y;x++) sprintf(out, "%s%d ", out, x);
+    // Generate a line to seperate the remain msg and game broad
 	sprintf(out, "%s\n----", out);
 	for(x=0;x<NUM_TILES_Y;x++) sprintf(out, "%s--", out);
 	sprintf(out, "%s\n", out);
@@ -70,11 +89,13 @@ char * print_game(){
 		sprintf(out, "%s%c | " , out, (char)('A' + x));
 			for(y=0;y<NUM_TILES_Y;y++){
 				if(game.tiles[x][y].is_flagged)
-					sprintf(out, "%s+ ", out);
+					sprintf(out, "%s+ ", out); // if user place a flag at this position, use + to denoted as flag
 				else if(game.tiles[x][y].revealed){
 					if(game.tiles[x][y].is_mine){
+                    // if user reveal this coordinate, and it is a mines it will denoted as *
 					sprintf(out, "%s* ", out);
 					}else
+                    // If user reveal this coordinate, and it is not a mines will display the adj mines to this coordinate
 					sprintf(out, "%s%d ", out, game.tiles[x][y].adj_mines);
 				}
 				else{
@@ -88,6 +109,7 @@ char * print_game(){
 	return strdup(out);
 }
 
+// A function to calculate the adj mines faster, if this position is mines then update the grid adj mines number 
 void update_adj_count(int x, int y){
 	if(x != NUM_TILES_X-1 && y != NUM_TILES_Y-1) 
 		game.tiles[x+1][y+1].adj_mines++;
@@ -108,6 +130,7 @@ void update_adj_count(int x, int y){
 
 }
 
+// A function that counting the adj number for this coordinate
 int cal_adjacent_mines(int x, int y){
     int mines = 0;
 
@@ -137,21 +160,46 @@ int cal_adjacent_mines(int x, int y){
     return mines;
 }
 
+// it is a function to support user reveal the zero tile, it will reveal the other nearby this zero tile
 void reveal_adj(int x, int y){
 
-	if(x != NUM_TILES_X-1 && y != NUM_TILES_Y-1) game.tiles[x+1][y+1].revealed = true;
-	if(x != NUM_TILES_X-1) 					 game.tiles[x+1][y].revealed = true;
-	if(x != NUM_TILES_X-1 && y != 0) 			 game.tiles[x+1][y-1].revealed = true;
-	if(y != NUM_TILES_Y-1) 					 game.tiles[x][y+1].revealed = true;
-	if(y != 0)			 					 game.tiles[x][y-1].revealed = true;
-	if(x != 0) 			 					 game.tiles[x-1][y].revealed = true;
-	if(x != 0 && y != 0) 					 game.tiles[x-1][y-1].revealed = true;
-	if(x != 0 && y != NUM_TILES_Y-1)			 game.tiles[x-1][y+1].revealed = true;
+    // Reveal Up Position
+	if(y != 0)			 					 
+        game.tiles[x][y-1].revealed = true;
+
+    // Reveal down Position
+	if(y != NUM_TILES_Y-1) 					 
+        game.tiles[x][y+1].revealed = true;
+
+    // Reveal Left Position
+	if(x != 0) 			 					 
+        game.tiles[x-1][y].revealed = true;
+
+    // Reveal Right Position
+	if(x != NUM_TILES_X-1) 					 
+        game.tiles[x+1][y].revealed = true;
+    
+    // Reveal Up-Left Position
+	if(x != 0 && y != 0) 					 
+        game.tiles[x-1][y-1].revealed = true;
+
+    // Reveal UP-Right Position
+	if(x != NUM_TILES_X-1 && y != 0) 			 
+        game.tiles[x+1][y-1].revealed = true;
+
+    // Reveal Down-Left Position
+	if(x != 0 && y != NUM_TILES_Y-1)			 
+        game.tiles[x-1][y+1].revealed = true;
+
+    // Reveal Down-Right Position
+    if(x != NUM_TILES_X-1 && y != NUM_TILES_Y-1) 
+        game.tiles[x+1][y+1].revealed = true;
 
 }
 
+// If user reveal a zeroAdj, this function is helped to reveal the nearby zero tile until the next tile is not zero
 void reveal_ZeroAdj(int x, int y){
-
+    // local Variable for checking the tile should it reveal more on this position or not
     int nearByMines = 0;
     int i = 0;
 
@@ -169,8 +217,6 @@ void reveal_ZeroAdj(int x, int y){
     nearByMines = 0;
     while( y + i != NUM_TILES_Y && nearByMines == 0){
         nearByMines = cal_adjacent_mines(x, y + i);
-        // game.tiles[x][y + i].revealed = true;
-
         if ( nearByMines == 0 ){
             reveal_adj(x, y +i );
         }
@@ -248,6 +294,7 @@ void reveal_ZeroAdj(int x, int y){
     }
 }
 
+// a function that detect a mine and then update the adj tile count for the coordinate nearby
 void find_adjacent(){
 	int x,y;
 	for(x=0;x<NUM_TILES_X;x++){
@@ -300,6 +347,7 @@ void revealTile(char tileA, char tile1)
 	valid = true;
 }
 
+// 
 void placeFlag(char tileA, char tile1)
 {
     int row;

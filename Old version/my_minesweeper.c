@@ -4,10 +4,10 @@
 #include <time.h>
 #include <string.h>
 
-
-#define RANDOM_NUMBER_SEED 42
+// Variable for the games
 #define NUM_TILES_X 9
 #define NUM_TILES_Y 9
+#define RANDOM_NUMBER_SEED 42
 #define NUM_MINES 10
 
 typedef struct {

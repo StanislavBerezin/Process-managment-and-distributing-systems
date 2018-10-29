@@ -18,6 +18,7 @@ typedef struct{
 	Tile tiles[NUM_TILES_X][NUM_TILES_Y];
 } GameState;
 
+// Main function to run the game
 int mainGame();
 
 void cleanGame();

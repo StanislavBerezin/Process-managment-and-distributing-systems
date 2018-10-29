@@ -299,6 +299,7 @@ void find_adjacent(){
 	int x,y;
 	for(x=0;x<NUM_TILES_X;x++){
 		for(y=0;y<NUM_TILES_X;y++){
+                // if it is a mine, then update the adj tile count for the coordinate nearby
 				if(game.tiles[x][y].is_mine){
 					update_adj_count(x,y);
 				}
@@ -317,14 +318,18 @@ int mainGame(int seed){
  	flags_placed = 0;
     srand(RANDOM_NUMBER_SEED + gameRound);
     gameRound++;
+    // Start to record the time
     gettimeofday(&tv1, NULL);
+    // Start to place the mines to gamebroad
 	place_mines();
+    // Start to Calculate the adj for all the tiles according to the bomb position
 	find_adjacent();
 	gameover = false;
     remainingMines = 10;
     valid = true;
 }
 
+// A function to decide the decision what should do if the user reveal the tile
 void revealTile(char tileA, char tile1)
 {
     int row;
@@ -333,6 +338,7 @@ void revealTile(char tileA, char tile1)
     row = tileA - 'A';
 	col = tile1 - '1';
 
+    // if this coordinate is a mine, and user is not place a flag , they are reveals it
 	if(game.tiles[row][col].is_mine && !game.tiles[row][col].is_flagged){
 		gameover = true;
 		return;
@@ -340,36 +346,48 @@ void revealTile(char tileA, char tile1)
 
 	// if this coordinate is zero, and it never be revealed before
 	if(game.tiles[row][col].adj_mines == 0 && game.tiles[row][col].revealed == false){
+        // Reveal the zero tile nearby from all position until it is not zero
 		reveal_ZeroAdj(row,col);
 	}
     game.tiles[row][col].revealed = true;
+    // Print the game broad
 	print_game();
 	valid = true;
 }
 
-// 
+// A function that place a flag to the position
 void placeFlag(char tileA, char tile1)
 {
     int row;
     int col;
 
+    // calculate the correct row and col 
     row = tileA - 'A';
 	col = tile1 - '1';
 
+    // Turn the is_flagged variable on
 	game.tiles[row][col].is_flagged = true;
 	flags_placed++;
+    // If user placed on a correct position
 	if (game.tiles[row][col].is_mine)
 	{
+        //Remaining Mines should minus one to tell the user, they are correct
 		remainingMines--;
 	}
-	if (flags_placed == 10)
+
+    // Currently we are allowed the user place the flag on all the coordinate
+    // We don't know the limitation, if yes we can change this number
+	if (flags_placed == 81)
 	{
+        // misplaced flag lead to fail the game
         gameover = true;
 	}
+    // Print the game broad
 	print_game();
 	valid = true;
 }
 
+//If the user has won
 int getResult()
 {
     int x,y;
@@ -386,6 +404,7 @@ int getResult()
 	return 1;
 }
 
+// If the user lose return the time to the user
 int getStatus()
 {
     if(gameover)
@@ -397,6 +416,7 @@ int getStatus()
         return 0;
 }
 
+//  Return the time to the user
 int getTime()
 {
     return  (tv2.tv_usec - tv1.tv_usec) / 1000000 +

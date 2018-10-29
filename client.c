@@ -221,7 +221,7 @@ void displayMainMenu()
     scanf("%i", &option);
     
     //Validating the input.
-    while(option > 3 || option < 1)
+    while(option > 3 || option < 1  )
     {
     	printf("You entered %i. Please enter between 1 and 3: ", option);
         scanf("%i", &option);
@@ -263,7 +263,7 @@ void gameOptions()
     scanf("%c", &option);
 
     // Validating the input
-    while(option > 'R' || option < 'P')
+    while(option > 'R' || option < 'P' || strlen(&option) != 1)
     {
        printf("Please select between (R, P, Q):");
        scanf("%c", &option);

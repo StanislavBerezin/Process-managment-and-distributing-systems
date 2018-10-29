@@ -97,7 +97,7 @@ void sigintHandler()
 int main(int argc, char *argv[])
 {
     system("clear");
-    interruptCallled();
+    // interruptCallled();
     signal(SIGINT, cleanThread);
     //Reading the command line args
     setPort(argc,argv);
@@ -115,14 +115,13 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void interruptCallled()
-{
-    instance.sa_handler = sigintHandler;
-    instance.sa_flags = 0;
-    sigemptyset(&instance.sa_mask);
-    sigaction(SIGINT, &instance, NULL);
-    printf("Hello! \n");
-}
+// void interruptCallled()
+// {
+//     instance.sa_handler = sigintHandler;
+//     instance.sa_flags = 0;
+//     sigemptyset(&instance.sa_mask);
+//     sigaction(SIGINT, &instance, NULL);
+// }
 
 // Thread Cleaning
 void cleanThread(){

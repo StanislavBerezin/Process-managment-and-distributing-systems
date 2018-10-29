@@ -377,7 +377,7 @@ void placeFlag(char tileA, char tile1)
 
     // Currently we are allowed the user place the flag on all the coordinate
     // We don't know the limitation, if yes we can change this number
-	if (flags_placed == 81)
+	if (flags_placed == 10)
 	{
         // misplaced flag lead to fail the game
         gameover = true;

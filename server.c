@@ -16,8 +16,11 @@
 #define NUMOFTHREADS 10
 #define BUFFERSIZE 1024
 
+#define PORTNUM 12345
+
 // Server Related Functions
 int serverInit(int portNumber);
+void setPort(int argc, char *argv[]);
 void serverFunction(int newsockfd);
 int authenticate(char *password, char *username, int iSelf);
 void authenticateRequest(int iSelf);
@@ -73,7 +76,7 @@ int communicator;
 char bufferREQUEST[BUFFERSIZE];
 char query[1];
 char response[BUFFERSIZE];
-
+int PORT_NUM = PORTNUM;
 int anyRecords = 0;
 int anyGamesPlayed = 0;
 int iUserRecords = 0;
@@ -94,10 +97,11 @@ void sigintHandler()
 int main(int argc, char *argv[])
 {
     system("clear");
-    // interruptCallled();
+    interruptCallled();
     signal(SIGINT, cleanThread);
     //Reading the command line args
-    sockfd = serverInit(argc < 2 ? 12345 : atoi(argv[1]));
+    setPort(argc,argv);
+    sockfd = serverInit(PORT_NUM);
 
     //Start all the threads
     threadsInit();
@@ -111,14 +115,14 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-// void interruptCallled()
-// {
-//     instance.sa_handler = sigintHandler;
-//     instance.sa_flags = 0;
-//     sigemptyset(&instance.sa_mask);
-//     sigaction(SIGINT, &instance, NULL);
-//     printf("Hello! \n");
-// }
+void interruptCallled()
+{
+    instance.sa_handler = sigintHandler;
+    instance.sa_flags = 0;
+    sigemptyset(&instance.sa_mask);
+    sigaction(SIGINT, &instance, NULL);
+    printf("Hello! \n");
+}
 
 // Thread Cleaning
 void cleanThread(){
@@ -452,4 +456,39 @@ void fatalerror(const char *msg)
 {
     perror(msg);
     exit(0);
+}
+
+// Setting up the port
+void setPort(int argc, char *argv[])
+{
+    if (argc == 1)
+    {
+        puts("\n");
+        printf("Setting up default port on: %d", PORT_NUM);
+        puts("\n");
+    }
+    else if (argc == 2)
+    {
+        int length = strlen(argv[1]);
+
+        if (length > 5)
+        {
+            puts("\n");
+            printf("Error: Try port number with 5 charecters");
+            puts("\n");
+        }
+        else
+        {
+            PORT_NUM = atoi(argv[1]);
+            puts("\n");
+            printf("Setting port on port: %d", PORT_NUM);
+            puts("\n");
+        }
+    }
+    else
+    {
+        puts("\n");
+        printf("Error: Too many arguments, try again");
+        puts("\n");
+    }
 }

@@ -1,4 +1,4 @@
-# HOW WE WORK ON GITHUB
+# Github control
 
 Before start working
 
